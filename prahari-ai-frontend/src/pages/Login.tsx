@@ -75,7 +75,7 @@ export default function Login() {
             <div className="flex flex-col items-center gap-5">
               <div className="flex items-center gap-4">
                 <img
-                  src="/image_9a5181.jpg"
+                  src="/image_9a5181.png"
                   alt="Karnataka Police Logo"
                   className="w-14 h-14 object-contain rounded-xl"
                   style={{ filter: "drop-shadow(0 0 12px rgba(201,162,39,0.3))" }}
