@@ -258,3 +258,136 @@ body {
   align-items: center;
   justify-content: center;
 }
+
+/* ============================================================
+   SYSTEM-WIDE LIGHT MODE OVERRIDES
+   ============================================================ */
+.light {
+  color-scheme: light;
+}
+
+.light body,
+.light #root,
+.light main {
+  background-color: var(--canvas-light) !important;
+  color: #0f172a !important;
+}
+
+/* Primary text overrides */
+.light h1, .light h2, .light h3, .light h4, .light h5, .light h6,
+.light .font-bold:not(.text-black):not(.text-status-green):not(.text-status-red),
+.light [style*="color: rgba(255, 255, 255"],
+.light [style*="color:rgba(255, 255, 255"],
+.light [style*="color: rgba(255,255,255"],
+.light [style*="color:rgba(255,255,255"] {
+  color: #0f172a !important;
+}
+
+/* Secondary / muted text overrides */
+.light p, .light span, .light label, .light td, .light th,
+.light [style*="color: rgba(255, 255, 255, 0.4"],
+.light [style*="color:rgba(255,255,255,0.4"],
+.light [style*="color: rgba(255, 255, 255, 0.5"],
+.light [style*="color:rgba(255,255,255,0.5"],
+.light [style*="color: rgba(255, 255, 255, 0.6"],
+.light [style*="color:rgba(255,255,255,0.6"] {
+  color: #334155 !important;
+}
+
+.light .text-white\/40, 
+.light .text-white\/25, 
+.light .text-white\/30,
+.light [style*="color: rgba(255, 255, 255, 0.25"],
+.light [style*="color:rgba(255,255,255,0.25"],
+.light [style*="color: rgba(255, 255, 255, 0.35"],
+.light [style*="color:rgba(255,255,255,0.35"],
+.light [style*="color: rgba(255, 255, 255, 0.3"],
+.light [style*="color:rgba(255,255,255,0.3"] {
+  color: #64748b !important;
+}
+
+/* Glass card / panel overrides */
+.light .glass-specular,
+.light .glass-panel,
+.light aside,
+.light header,
+.light [style*="background: rgba(255, 255, 255, 0.055)"],
+.light [style*="background:rgba(255,255,255,0.055)"],
+.light [style*="background: rgba(255, 255, 255, 0.04)"],
+.light [style*="background:rgba(255,255,255,0.04)"],
+.light [style*="background: rgba(255, 255, 255, 0.06)"],
+.light [style*="background:rgba(255,255,255,0.06)"],
+.light [style*="background: rgba(0, 0, 0, 0.04)"],
+.light [style*="background:rgba(0,0,0,0.04)"] {
+  background: rgba(255, 255, 255, 0.6) !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+}
+
+/* Inputs, Textareas, Select fields overrides */
+.light input,
+.light textarea,
+.light select,
+.light [style*="background: rgba(255, 255, 255, 0.05)"],
+.light [style*="background:rgba(255,255,255,0.05)"] {
+  color: #0f172a !important;
+  background-color: rgba(0, 0, 0, 0.035) !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+.light input:focus,
+.light textarea:focus,
+.light select:focus {
+  border-color: #C9A227 !important;
+  background-color: rgba(255, 255, 255, 0.9) !important;
+}
+.light input::placeholder,
+.light textarea::placeholder {
+  color: rgba(15, 23, 42, 0.35) !important;
+}
+
+/* Lucide Icon Colors and Buttons */
+.light button:not([style*="background"]):not(.bg-transparent) svg {
+  color: #475569 !important;
+}
+.light button:hover svg {
+  color: #0f172a !important;
+}
+.light svg.lucide {
+  stroke: currentColor;
+}
+.light .text-white svg {
+  color: inherit !important;
+}
+
+/* Specific component updates */
+.light nav button {
+  color: #475569 !important;
+}
+.light nav button:hover {
+  color: #0f172a !important;
+}
+.light nav button span {
+  color: inherit !important;
+}
+.light .active-nav-pill,
+.light [layoutId="active-nav-pill"] {
+  background: rgba(201, 162, 39, 0.12) !important;
+  border: 1px solid rgba(201, 162, 39, 0.3) !important;
+  box-shadow: 0 2px 12px rgba(201, 162, 39, 0.08) !important;
+}
+
+/* Chat bubble styling overrides */
+.light .flex.w-full.gap-3:not(.justify-end) [style*="background: rgba(255,255,255,0.06)"],
+.light .flex.w-full.gap-3:not(.justify-end) [style*="background:rgba(255,255,255,0.06)"] {
+  background: rgba(255, 255, 255, 0.75) !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  color: #0f172a !important;
+}
+
+/* Scrollbar tracks */
+.light ::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.02);
+}
+.light ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+}
