@@ -44,7 +44,7 @@ export default function KpiDashboard() {
   };
 
   return (
-    <div className="w-full h-full p-4 md:p-6 flex flex-col gap-6 overflow-y-auto scrollbar-hide">
+    <div className="w-full h-full p-4 md:p-6 flex flex-col gap-6 overflow-y-auto scrollbar-hide relative z-10">
       
       {/* 1. Clearance Level Simulator (For Demo Purposes) */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-neutral-100 dark:bg-neutral-900/50 p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800">

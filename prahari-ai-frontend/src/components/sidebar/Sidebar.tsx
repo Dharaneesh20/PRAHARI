@@ -7,95 +7,181 @@ export default function Sidebar() {
   const navigate = useNavigate();
 
   return (
-    <aside className="w-64 h-screen border-r border-neutral-200 dark:border-neutral-800/60 bg-white/70 dark:bg-black/70 backdrop-blur-3xl shadow-[0_8px_32px_0_rgba(0,0,0,0.05)] flex flex-col relative z-20 transition-colors duration-500">
-      
-      {/* 1. Brand Header */}
-      <div className="p-6 flex items-center gap-3 border-b border-neutral-200 dark:border-neutral-800/60 transition-colors duration-500">
-        <div className="w-10 h-10 bg-neutral-100 dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 shadow-sm flex items-center justify-center p-1.5 relative overflow-hidden">
-          <img 
-            src="/image_9a4dc1.png" 
-            alt="Prahari AI Logo" 
-            className="w-full h-full object-contain relative z-10" 
+    <aside
+      className="glass-specular h-full w-full flex flex-col relative overflow-hidden"
+      style={{
+        borderRadius: 20,
+        backdropFilter: "blur(24px) saturate(160%)",
+        WebkitBackdropFilter: "blur(24px) saturate(160%)",
+        background: "var(--glass-bg-dark)",
+        border: "1px solid var(--glass-border-dark)",
+        boxShadow: "var(--glass-shadow-dark)",
+      }}
+    >
+      {/* Light mode overrides via CSS classes applied on <html> */}
+      <style>{`
+        .light aside {
+          background: var(--glass-bg-light) !important;
+          border-color: var(--glass-border-light) !important;
+          box-shadow: var(--glass-shadow-light) !important;
+        }
+      `}</style>
+
+      {/* ── Brand Header ──────────────────────────────── */}
+      <div
+        className="p-5 flex items-center gap-3 relative z-10"
+        style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}
+      >
+        <motion.div
+          animate={{ scale: [1, 1.04, 1] }}
+          transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+          className="w-10 h-10 rounded-xl flex items-center justify-center p-1.5 relative overflow-hidden"
+          style={{
+            background: "linear-gradient(135deg, rgba(201,162,39,0.2) 0%, rgba(63,92,134,0.3) 100%)",
+            border: "1px solid rgba(201,162,39,0.35)",
+            boxShadow: "0 0 16px rgba(201,162,39,0.2)",
+          }}
+        >
+          <img
+            src="/image_9a4dc1.png"
+            alt="Prahari AI Logo"
+            className="w-full h-full object-contain relative z-10"
           />
-        </div>
+        </motion.div>
         <div>
-          <h1 className="text-xl font-bold text-black dark:text-white tracking-wide transition-colors duration-500">
+          <h1 className="text-base font-bold text-white tracking-wide leading-none">
             Prahari AI
           </h1>
-          <p className="text-[10px] uppercase text-neutral-500 font-bold tracking-widest mt-0.5 transition-colors duration-500">
+          <p className="text-[10px] uppercase font-bold tracking-widest mt-1"
+            style={{ color: "rgba(201,162,39,0.8)" }}>
             Command Center
           </p>
         </div>
       </div>
 
-      {/* 2. Animated Navigation */}
-      <nav className="flex-1 px-3 py-6 overflow-y-auto">
-        <ul className="space-y-1.5">
+      {/* ── Navigation ────────────────────────────────── */}
+      <nav className="flex-1 px-3 py-5 overflow-y-auto scrollbar-hide relative z-10">
+        <ul className="space-y-1">
           {navigation.map((item, index) => {
-            // Check if the current URL matches the item's path
             const isActive = location.pathname === item.path;
             const Icon = item.icon;
 
             return (
               <motion.li
                 key={item.name}
-                initial={{ opacity: 0, x: -20 }}
+                initial={{ opacity: 0, x: -16 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 + 0.1 }}
+                transition={{ delay: index * 0.05 + 0.1, type: "spring", stiffness: 260, damping: 22 }}
                 className="relative"
               >
-                <button
-                  onClick={() => navigate(item.path)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 relative z-10 ${
-                    isActive
-                      ? "text-black dark:text-white font-bold drop-shadow-sm"
-                      : "text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white dark:hover:bg-white/[0.04] hover:bg-neutral-100"
-                  }`}
-                >
-                  <Icon 
-                    className={`w-5 h-5 transition-all duration-300 ${
-                      isActive ? "text-black dark:text-white" : "text-neutral-400 dark:text-neutral-500"
-                    }`} 
-                  />
-                  <span className="text-sm tracking-wide">{item.name}</span>
-                </button>
-
-                {/* 3. Liquid Glass Active Indicator */}
+                {/* Spring-animated active pill */}
                 {isActive && (
                   <motion.div
-                    layoutId="active-nav"
-                    className="absolute inset-0 bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl z-0"
-                    transition={{ type: "spring", stiffness: 350, damping: 30 }}
-                  >
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-1/2 bg-black dark:bg-white rounded-r-full shadow-sm" />
-                  </motion.div>
+                    layoutId="active-nav-pill"
+                    className="absolute inset-0 rounded-xl"
+                    transition={{ type: "spring", stiffness: 340, damping: 28 }}
+                    style={{
+                      background: "linear-gradient(135deg, rgba(201,162,39,0.18) 0%, rgba(63,92,134,0.15) 100%)",
+                      border: "1px solid rgba(201,162,39,0.35)",
+                      boxShadow: "0 2px 12px rgba(201,162,39,0.12)",
+                    }}
+                  />
                 )}
+
+                <button
+                  onClick={() => navigate(item.path)}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl relative z-10 transition-all duration-200 group"
+                  style={{
+                    color: isActive ? "#fff" : "rgba(255,255,255,0.45)",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isActive) (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.85)";
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive) (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.45)";
+                  }}
+                >
+                  <motion.div
+                    whileHover={{ scale: 1.15 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 18 }}
+                  >
+                    <Icon
+                      className="w-5 h-5 transition-colors duration-200"
+                      style={{ color: isActive ? "#C9A227" : "inherit" }}
+                    />
+                  </motion.div>
+                  <span
+                    className="text-sm font-medium tracking-wide"
+                    style={{ fontWeight: isActive ? 600 : 400 }}
+                  >
+                    {item.name}
+                  </span>
+
+                  {/* Active left accent bar */}
+                  {isActive && (
+                    <motion.div
+                      layoutId="active-nav-bar"
+                      className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-r-full"
+                      style={{ background: "#C9A227" }}
+                    />
+                  )}
+                </button>
               </motion.li>
             );
           })}
         </ul>
       </nav>
 
-      {/* 4. Frosted Profile Card */}
-      <div className="p-4 m-4 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-sm relative overflow-hidden group hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors cursor-pointer">
-        <div className="flex items-center gap-3 relative z-10">
-          <div className="relative">
-            <div className="w-10 h-10 rounded-full bg-neutral-200 dark:bg-black flex items-center justify-center border border-neutral-300 dark:border-neutral-700">
-              <span className="text-sm font-bold text-black dark:text-white">IR</span>
+      {/* ── Profile Card ──────────────────────────────── */}
+      <div className="p-3 relative z-10">
+        <div
+          className="glass-specular p-4 rounded-2xl cursor-pointer group relative overflow-hidden"
+          style={{
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.09)",
+            transition: "background 0.2s",
+          }}
+          onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)")}
+          onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)")}
+        >
+          <div className="flex items-center gap-3 relative z-10">
+            {/* Avatar with animated gradient ring */}
+            <div className="relative">
+              <div
+                className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm text-white"
+                style={{
+                  background: "linear-gradient(135deg, #1B2A4A 0%, #3F5C86 100%)",
+                  boxShadow: "0 0 0 2px rgba(201,162,39,0.5), 0 0 12px rgba(201,162,39,0.25)",
+                  animation: "gradientRing 4s ease infinite",
+                }}
+              >
+                IR
+              </div>
+              {/* Breathing green status dot */}
+              <div
+                className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2"
+                style={{
+                  background: "#2E9E6C",
+                  borderColor: "rgba(15,20,40,0.9)",
+                  animation: "statusBreath 2.5s ease-in-out infinite",
+                }}
+              />
             </div>
-            <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white dark:border-[#090D16] rounded-full" />
-          </div>
-          
-          <div>
-            <p className="text-sm font-bold text-black dark:text-white tracking-wide transition-colors duration-500">Inspector Raj</p>
-            <p className="text-xs text-neutral-500 flex items-center gap-1.5 mt-0.5 transition-colors duration-500">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500/80 animate-pulse" />
-              Karnataka Police
-            </p>
+
+            <div>
+              <p className="text-sm font-semibold text-white leading-none">Inspector Raj</p>
+              <p className="text-[10px] mt-1 flex items-center gap-1.5"
+                style={{ color: "rgba(255,255,255,0.45)" }}>
+                <span
+                  className="w-1.5 h-1.5 rounded-full inline-block"
+                  style={{ background: "#2E9E6C", animation: "breathePulse 2s ease-in-out infinite" }}
+                />
+                Karnataka Police · On Duty
+              </p>
+            </div>
           </div>
         </div>
       </div>
-      
     </aside>
   );
 }

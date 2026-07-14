@@ -1,16 +1,260 @@
-@import url('https://fonts.googleapis.com/css2?family=Ubuntu:wght@300;400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Ubuntu:wght@300;400;500;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   PRAHARI AI — Tactical Liquid Glass Design System
+   ============================================================ */
+
+/* ---------- Color tokens ---------- */
+:root {
+  /* Canvas */
+  --canvas-dark: #05070D;
+  --canvas-light: #F4F6FA;
+
+  /* Blob colors */
+  --blob-navy: #1B2A4A;
+  --blob-steel: #3F5C86;
+  --blob-gold: #C9A227;
+
+  /* Accent palette */
+  --gold: #C9A227;
+  --gold-glow: rgba(201, 162, 39, 0.35);
+  --gold-border: rgba(201, 162, 39, 0.5);
+  --status-green: #2E9E6C;
+  --status-red: #D14343;
+
+  /* Glass (dark) */
+  --glass-bg-dark: rgba(255, 255, 255, 0.055);
+  --glass-border-dark: rgba(255, 255, 255, 0.10);
+  --glass-highlight-dark: rgba(255, 255, 255, 0.06);
+  --glass-shadow-dark: 0 8px 40px rgba(0, 0, 0, 0.55), inset 0 1px 1px rgba(255,255,255,0.12);
+
+  /* Glass (light) */
+  --glass-bg-light: rgba(255, 255, 255, 0.55);
+  --glass-border-light: rgba(255, 255, 255, 0.7);
+  --glass-highlight-light: rgba(255, 255, 255, 0.4);
+  --glass-shadow-light: 0 8px 40px rgba(0, 0, 0, 0.12), inset 0 1px 1px rgba(255,255,255,0.85);
+
+  /* Motion */
+  --spring-standard: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --spring-soft: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --transition-fast: 150ms;
+  --transition-mid: 280ms;
+  --transition-slow: 500ms;
+}
+
+/* ============================================================
+   BASE RESET
+   ============================================================ */
 html, body, #root {
-    width: 100%;
-    height: 100%;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 body {
-    margin: 0;
-    /* Apply Ubuntu globally */
-    font-family: 'Ubuntu', sans-serif; 
+  font-family: 'Inter', 'Ubuntu', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+}
+
+/* ============================================================
+   LIQUID BACKGROUND KEYFRAMES
+   ============================================================ */
+@keyframes blobFloat1 {
+  0%, 100% { transform: translate(0%, 0%) scale(1); }
+  33%       { transform: translate(6%, -8%) scale(1.08); }
+  66%       { transform: translate(-5%, 6%) scale(0.96); }
+}
+@keyframes blobFloat2 {
+  0%, 100% { transform: translate(0%, 0%) scale(1); }
+  25%       { transform: translate(-8%, 10%) scale(1.12); }
+  75%       { transform: translate(7%, -6%) scale(0.94); }
+}
+@keyframes blobFloat3 {
+  0%, 100% { transform: translate(0%, 0%) scale(1); }
+  40%       { transform: translate(9%, 5%) scale(1.06); }
+  80%       { transform: translate(-4%, -9%) scale(0.98); }
+}
+
+/* ============================================================
+   SPECULAR HIGHLIGHT DRIFT
+   ============================================================ */
+@keyframes specularDrift {
+  0%   { opacity: 0.04; transform: translateX(-60%) skewX(-15deg); }
+  50%  { opacity: 0.08; transform: translateX(60%) skewX(-15deg); }
+  100% { opacity: 0.04; transform: translateX(-60%) skewX(-15deg); }
+}
+
+/* ============================================================
+   LIQUID ORB MORPH
+   ============================================================ */
+@keyframes orbMorph {
+  0%   { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; }
+  25%  { border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%; }
+  50%  { border-radius: 50% 60% 40% 60% / 30% 60% 40% 70%; }
+  75%  { border-radius: 60% 40% 60% 30% / 60% 40% 60% 40%; }
+  100% { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; }
+}
+@keyframes orbMorphFast {
+  0%   { border-radius: 40% 60% 60% 40% / 60% 30% 70% 40%; }
+  20%  { border-radius: 60% 40% 30% 60% / 40% 60% 40% 60%; }
+  40%  { border-radius: 30% 60% 40% 60% / 60% 40% 60% 30%; }
+  60%  { border-radius: 60% 30% 60% 40% / 40% 60% 30% 60%; }
+  80%  { border-radius: 40% 60% 30% 60% / 30% 60% 60% 40%; }
+  100% { border-radius: 40% 60% 60% 40% / 60% 30% 70% 40%; }
+}
+@keyframes orbGlow {
+  0%, 100% { box-shadow: 0 0 30px 8px var(--gold-glow), 0 0 60px 16px rgba(201,162,39,0.12); }
+  50%       { box-shadow: 0 0 50px 16px var(--gold-glow), 0 0 90px 24px rgba(201,162,39,0.20); }
+}
+
+/* ============================================================
+   BREATHING / PULSE
+   ============================================================ */
+@keyframes breathePulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%       { transform: scale(1.04); opacity: 0.85; }
+}
+@keyframes statusBreath {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(46, 158, 108, 0.6); }
+  50%       { box-shadow: 0 0 0 5px rgba(46, 158, 108, 0); }
+}
+@keyframes pinPulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%       { transform: scale(1.6); opacity: 0; }
+}
+@keyframes bellPulse {
+  0%, 100% { transform: scale(1); }
+  20%       { transform: scale(1.18); }
+  40%       { transform: scale(0.95); }
+  60%       { transform: scale(1.08); }
+  80%       { transform: scale(0.98); }
+}
+@keyframes searchIconPulse {
+  0%, 100% { filter: drop-shadow(0 0 0px transparent); }
+  50%       { filter: drop-shadow(0 0 4px var(--gold)); }
+}
+@keyframes scanLine {
+  0%   { top: 0%; opacity: 0.7; }
+  100% { top: 100%; opacity: 0.3; }
+}
+@keyframes rippleOut {
+  0%   { transform: scale(0); opacity: 0.6; }
+  100% { transform: scale(4); opacity: 0; }
+}
+@keyframes wordFadeUp {
+  from { opacity: 0; transform: translateY(8px); filter: blur(3px); }
+  to   { opacity: 1; transform: translateY(0);   filter: blur(0); }
+}
+@keyframes tokenFadeIn {
+  from { opacity: 0; filter: blur(4px); }
+  to   { opacity: 1; filter: blur(0); }
+}
+@keyframes gradientRing {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* ============================================================
+   GLASS UTILITY CLASSES
+   ============================================================ */
+.glass-panel {
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  background: var(--glass-bg-dark);
+  border: 1px solid var(--glass-border-dark);
+  box-shadow: var(--glass-shadow-dark);
+}
+
+.dark .glass-panel {
+  background: var(--glass-bg-dark);
+  border-color: var(--glass-border-dark);
+}
+
+.light .glass-panel,
+:not(.dark) .glass-panel {
+  background: var(--glass-bg-light);
+  border-color: var(--glass-border-light);
+  box-shadow: var(--glass-shadow-light);
+}
+
+/* Inner specular highlight pseudo-element — applied to elements with .glass-specular */
+.glass-specular {
+  position: relative;
+  overflow: hidden;
+}
+.glass-specular::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -80%;
+  width: 60%;
+  height: 200%;
+  background: linear-gradient(135deg, transparent 0%, rgba(255,255,255,0.08) 50%, transparent 100%);
+  transform: skewX(-15deg);
+  animation: specularDrift 16s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.orb-morph {
+  animation: orbMorph 8s ease-in-out infinite, orbGlow 4s ease-in-out infinite;
+}
+.orb-morph-fast {
+  animation: orbMorphFast 2s ease-in-out infinite, orbGlow 1.5s ease-in-out infinite;
+}
+
+/* ============================================================
+   SCROLLBAR HIDE
+   ============================================================ */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ============================================================
+   REDUCED MOTION FALLBACK
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================================
+   RADIAL WIPE OVERLAY
+   ============================================================ */
+.radial-wipe-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  clip-path: circle(0% at var(--wipe-x, 50%) var(--wipe-y, 50%));
+  transition: clip-path 600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.radial-wipe-overlay.expanding {
+  clip-path: circle(150% at var(--wipe-x, 50%) var(--wipe-y, 50%));
+}
+
+/* ============================================================
+   DRAG OVERLAY
+   ============================================================ */
+.drag-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  backdrop-filter: blur(8px);
+  background: rgba(5, 7, 13, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }

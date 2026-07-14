@@ -8,7 +8,12 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Ubuntu', 'sans-serif'], 
+        sans: ['Inter', 'Ubuntu', 'sans-serif'],
+      },
+      colors: {
+        gold: '#C9A227',
+        'status-green': '#2E9E6C',
+        'status-red': '#D14343',
       },
     },
   },
