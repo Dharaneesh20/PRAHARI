@@ -13,16 +13,16 @@ ENV/
 .env
 
 # Large raw and processed data files
-karnataka-fir-datathon/data/raw/FIR_Details_Data.csv
-karnataka-fir-datathon/data/processed/
+data/raw/FIR_Details_Data.csv
+data/processed/
 
 # DuckDB database files
-karnataka-fir-datathon/db/
+db/
 *.duckdb
 *.duckdb.tmp
 
 # Generated analytical outputs (parquets, CSVs, coaccused graphs, and logs)
-karnataka-fir-datathon/outputs/
+outputs/
 
 # IDE settings and system files
 .vscode/
