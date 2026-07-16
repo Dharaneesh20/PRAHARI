@@ -4,11 +4,10 @@ import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from "react-leaf
 import "leaflet/dist/leaflet.css";
 import { motion, AnimatePresence } from "framer-motion";
 import { SlidersHorizontal, X, Layers, Map, Zap, Shield } from "lucide-react";
-import { INCIDENTS } from "../mocks/incidents";
-import { UNITS } from "../mocks/units";
 import { glassPanelStyle } from "../components/GlassCard";
 import { SeverityBadge, IncidentStatusBadge } from "../components/StatusBadge";
-import type { CrimeType, Severity } from "../mocks/types";
+import type { CrimeType, Severity, Incident, PatrolUnit } from "../lib/types";
+import { incidents as incidentsApi, units as unitsApi } from "../lib/api";
 
 const SEVERITY_COLORS: Record<Severity, string> = {
   critical: "#D14343", high: "#F97316", medium: "#C9A227", low: "#2E9E6C",
@@ -16,15 +15,15 @@ const SEVERITY_COLORS: Record<Severity, string> = {
 
 const CRIME_TYPES: CrimeType[] = ["Theft", "Assault", "Burglary", "Traffic Violation", "Vandalism", "Drug Offence", "Robbery", "Fraud"];
 
-function MapZoomToZone({ zone }: { zone: string | null }) {
+function MapZoomToZone({ zone, incidents }: { zone: string | null; incidents: Incident[] }) {
   const map = useMap();
   useEffect(() => {
     if (!zone) return;
-    const incident = INCIDENTS.find(i => i.location.zone.toLowerCase() === zone.toLowerCase());
+    const incident = incidents.find(i => i.location.zone.toLowerCase() === zone.toLowerCase());
     if (incident) {
       map.setView([incident.location.lat, incident.location.lng], 14, { animate: true });
     }
-  }, [zone, map]);
+  }, [zone, map, incidents]);
   return null;
 }
 
@@ -41,14 +40,27 @@ export default function CrimeMap() {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedTypes, setSelectedTypes] = useState<CrimeType[]>([]);
   const [layers, setLayers] = useState({ markers: true, patrol: false, heatmap: false });
-  const [selectedIncident, setSelectedIncident] = useState<typeof INCIDENTS[0] | null>(null);
+  const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
+
+  const [incidentsList, setIncidentsList] = useState<Incident[]>([]);
+  const [unitsList, setUnitsList] = useState<PatrolUnit[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([incidentsApi.list(), unitsApi.list()])
+      .then(([inc, u]) => { setIncidentsList(inc); setUnitsList(u); })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
 
   const toggleType = (t: CrimeType) =>
     setSelectedTypes(p => p.includes(t) ? p.filter(x => x !== t) : [...p, t]);
 
-  const filtered = INCIDENTS.filter(i =>
+  const filtered = incidentsList.filter(i =>
     selectedTypes.length === 0 || selectedTypes.includes(i.type)
   );
+
+  if (loading) return <div className="flex items-center justify-center h-full" style={{ color: "rgba(255,255,255,0.4)" }}><p>Loading map data...</p></div>;
 
   return (
     <div className="relative w-full h-full">
@@ -63,7 +75,7 @@ export default function CrimeMap() {
           url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
           attribution='&copy; <a href="https://carto.com">CARTO</a>'
         />
-        <MapZoomToZone zone={zoneParam} />
+        <MapZoomToZone zone={zoneParam} incidents={incidentsList} />
 
         {/* Incident markers */}
         {layers.markers && filtered.map(inc => (
@@ -90,7 +102,7 @@ export default function CrimeMap() {
         ))}
 
         {/* Patrol unit markers */}
-        {layers.patrol && UNITS.filter(u => u.status !== "off-duty").map(u => (
+        {layers.patrol && unitsList.filter(u => u.status !== "off-duty").map(u => (
           <CircleMarker
             key={u.id}
             center={[u.position.lat, u.position.lng]}

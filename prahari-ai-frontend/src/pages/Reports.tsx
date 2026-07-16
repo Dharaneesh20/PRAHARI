@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Plus, FileText, Download, ChevronRight, Clock, Edit3, CheckCircle2, History } from "lucide-react";
-import { REPORTS } from "../mocks/reports";
 import GlassCard, { glassPanelStyle } from "../components/GlassCard";
 import { ReportStatusBadge } from "../components/StatusBadge";
 import LiquidOrb from "../components/LiquidOrb";
-import type { Report } from "../mocks/types";
+import type { Report } from "../lib/types";
+import { reports as reportsApi } from "../lib/api";
 
 const DRAFT_TEXT = `CHARGESHEET / INCIDENT SUMMARY DRAFT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -88,24 +88,48 @@ function ReportRow({ report, selected, onClick }: { report: Report; selected: bo
 }
 
 export default function Reports() {
-  const [reports, setReports] = useState<Report[]>(REPORTS);
-  const [selected, setSelected] = useState<Report | null>(REPORTS[0]);
+  const [selected, setSelected] = useState<Report | null>(null);
   const [search, setSearch] = useState("");
   const [showBuilder, setShowBuilder] = useState(false);
+  const [reportsList, setReportsList] = useState<Report[]>([]);
+  const [loading, setLoading] = useState(true);
   const [genState, setGenState] = useState<GenerateState>("idle");
   const [genCaseId, setGenCaseId] = useState("");
   const [genType, setGenType] = useState("Incident Summary");
   const [genNotes, setGenNotes] = useState("");
   const [showHistory, setShowHistory] = useState(false);
+  const [streamedText, setStreamedText] = useState("");
 
-  const filtered = reports.filter(r =>
+  useEffect(() => {
+    reportsApi.list()
+      .then(res => {
+        setReportsList(res);
+        if (res.length > 0) setSelected(res[0]);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = reportsList.filter(r =>
     r.title.toLowerCase().includes(search.toLowerCase()) ||
     r.caseId.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
+    if (!genCaseId) return;
     setGenState("thinking");
-    setTimeout(() => setGenState("streaming"), 2500);
+    setStreamedText("");
+    try {
+      setGenState("streaming");
+      for await (const token of reportsApi.streamGenerate(genCaseId, genType, genNotes)) {
+        setStreamedText(p => p + token);
+      }
+      setGenState("done");
+    } catch (err) {
+      console.error("Stream failed", err);
+      setStreamedText("Failed to generate report. Make sure backend is running and Groq API key is configured.");
+      setGenState("done");
+    }
   };
 
   const handleDownload = () => {
@@ -148,9 +172,13 @@ export default function Reports() {
           </div>
         </div>
         <div className="flex-1 overflow-y-auto scrollbar-hide">
-          {filtered.map(r => (
-            <ReportRow key={r.id} report={r} selected={selected?.id === r.id && !showBuilder} onClick={() => { setSelected(r); setShowBuilder(false); }} />
-          ))}
+          {loading ? (
+            <div className="p-4 text-center text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>Loading reports...</div>
+          ) : (
+            filtered.map(r => (
+              <ReportRow key={r.id} report={r} selected={selected?.id === r.id && !showBuilder} onClick={() => { setSelected(r); setShowBuilder(false); }} />
+            ))
+          )}
         </div>
       </div>
 
@@ -220,10 +248,10 @@ export default function Reports() {
                         </button>
                       )
                     }>
-                      {genState === "streaming"
-                        ? <StreamingText text={DRAFT_TEXT} onDone={() => setGenState("done")} />
-                        : <pre className="text-xs leading-relaxed whitespace-pre-wrap font-mono" style={{ color: "rgba(255,255,255,0.75)" }}>{DRAFT_TEXT}</pre>
-                      }
+                      <pre className="text-xs leading-relaxed whitespace-pre-wrap font-mono" style={{ color: "rgba(255,255,255,0.75)" }}>
+                        {streamedText}
+                        {genState === "streaming" && <span className="animate-pulse" style={{ color: "#C9A227" }}>▊</span>}
+                      </pre>
                     </GlassCard>
                   </motion.div>
                 )}

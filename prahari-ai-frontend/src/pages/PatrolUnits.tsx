@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { LayoutGrid, Map as MapIcon, Clock, Star, ChevronRight, Shield, Car, User } from "lucide-react";
-import { UNITS } from "../mocks/units";
-import { INCIDENTS } from "../mocks/incidents";
+import { LayoutGrid, Map as MapIcon, Clock, User, Car } from "lucide-react";
+import { units as unitsApi, incidents as incidentsApi } from "../lib/api";
+import type { PatrolUnit, Incident } from "../lib/types";
 import GlassCard, { glassPanelStyle } from "../components/GlassCard";
-import { UnitStatusBadge, UnitStatusDot } from "../components/StatusBadge";
+import { UnitStatusBadge } from "../components/StatusBadge";
 import { Sparkline } from "../components/SvgChart";
 import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
@@ -26,9 +26,9 @@ function formatShiftRemaining(end: string) {
   return `${hrs}h ${mins}m left`;
 }
 
-function UnitCard({ unit, onAssign }: { unit: typeof UNITS[0]; onAssign: () => void }) {
+function UnitCard({ unit, incidents, onAssign }: { unit: PatrolUnit; incidents: Incident[]; onAssign: () => void }) {
   const [flipped, setFlipped] = useState(false);
-  const assignedIncidents = INCIDENTS.filter(i => i.assignedUnitId === unit.id && i.status !== "resolved");
+  const assignedIncidents = incidents.filter(i => i.assignedUnitId === unit.id && i.status !== "resolved");
 
   return (
     <motion.div
@@ -115,21 +115,33 @@ function UnitCard({ unit, onAssign }: { unit: typeof UNITS[0]; onAssign: () => v
   );
 }
 
-const SHIFTS = [
-  { name: "Morning 06:00–14:00", units: UNITS.filter(u => u.shiftStart === "06:00") },
-  { name: "Afternoon 14:00–22:00", units: UNITS.filter(u => u.shiftStart === "14:00") },
-  { name: "Night 22:00–06:00", units: UNITS.filter(u => u.shiftStart === "22:00") },
-  { name: "Day Shift 09:00–18:00", units: UNITS.filter(u => u.shiftStart === "09:00") },
-];
-
 export default function PatrolUnits() {
   const [view, setView] = useState<View>("grid");
   const [tab, setTab] = useState<Tab>("roster");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [unitsList, setUnitsList] = useState<PatrolUnit[]>([]);
+  const [incidentsList, setIncidentsList] = useState<Incident[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const sorted = [...UNITS]
+  useEffect(() => {
+    Promise.all([unitsApi.list(), incidentsApi.list()])
+      .then(([u, inc]) => { setUnitsList(u); setIncidentsList(inc); })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const shifts = [
+    { name: "Morning 06:00–14:00", units: unitsList.filter(u => u.shiftStart === "06:00") },
+    { name: "Afternoon 14:00–22:00", units: unitsList.filter(u => u.shiftStart === "14:00") },
+    { name: "Night 22:00–06:00", units: unitsList.filter(u => u.shiftStart === "22:00") },
+    { name: "Day Shift 09:00–18:00", units: unitsList.filter(u => u.shiftStart === "09:00") },
+  ];
+
+  const sorted = [...unitsList]
     .filter(u => filterStatus === "all" || u.status === filterStatus)
-    .sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]);
+    .sort((a, b) => (STATUS_ORDER[a.status as keyof typeof STATUS_ORDER] ?? 9) - (STATUS_ORDER[b.status as keyof typeof STATUS_ORDER] ?? 9));
+
+  if (loading) return <div className="flex items-center justify-center h-full" style={{ color: "rgba(255,255,255,0.4)" }}><p>Loading units...</p></div>;
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -138,7 +150,7 @@ export default function PatrolUnits() {
         <div>
           <h1 className="font-bold text-lg" style={{ color: "rgba(255,255,255,0.92)" }}>Patrol Units</h1>
           <p className="text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>
-            {UNITS.filter(u => u.status === "on-patrol" || u.status === "responding").length} active · {UNITS.filter(u => u.status === "off-duty").length} off duty
+            {unitsList.filter(u => u.status === "on-patrol" || u.status === "responding").length} active · {unitsList.filter(u => u.status === "off-duty").length} off duty
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -187,8 +199,8 @@ export default function PatrolUnits() {
                 ))}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                {sorted.map((unit, i) => (
-                  <UnitCard key={unit.id} unit={unit} onAssign={() => {}} />
+                {sorted.map((unit) => (
+                  <UnitCard key={unit.id} unit={unit} incidents={incidentsList} onAssign={() => {}} />
                 ))}
               </div>
             </motion.div>
@@ -198,7 +210,7 @@ export default function PatrolUnits() {
             <motion.div key="map-view" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full" style={{ minHeight: 500 }}>
               <MapContainer center={[12.97, 77.60]} zoom={12} style={{ width: "100%", height: "100%", minHeight: 500 }}>
                 <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" attribution='&copy; CARTO' />
-                {UNITS.filter(u => u.status !== "off-duty").map(u => (
+                {unitsList.filter(u => u.status !== "off-duty").map(u => (
                   <CircleMarker key={u.id} center={[u.position.lat, u.position.lng]} radius={9}
                     pathOptions={{ color: u.status === "responding" ? "#D14343" : "#2E9E6C", fillColor: u.status === "responding" ? "#D14343" : "#2E9E6C", fillOpacity: 0.85, weight: 2 }}>
                     <Popup>
@@ -215,12 +227,12 @@ export default function PatrolUnits() {
 
           {tab === "schedule" && (
             <motion.div key="schedule" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="p-5 flex flex-col gap-5">
-              {SHIFTS.map(shift => (
+              {shifts.map(shift => (
                 <GlassCard key={shift.name} title={shift.name} subtitle={`${shift.units.length} units`}>
                   <div className="flex flex-col gap-2">
                     {shift.units.map(u => (
                       <div key={u.id} className="flex items-center gap-3">
-                        <UnitStatusDot status={u.status} size={9} />
+                        <div className="w-2 h-2 rounded-full" style={{ background: u.status === "responding" ? "#D14343" : u.status === "on-patrol" ? "#2E9E6C" : "#6B7280" }} />
                         <p className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.8)" }}>{u.callsign}</p>
                         <p className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>{u.zone}</p>
                         <UnitStatusBadge status={u.status} />
@@ -245,7 +257,7 @@ export default function PatrolUnits() {
                     </tr>
                   </thead>
                   <tbody>
-                    {[...UNITS].sort((a, b) => b.incidentsThisMonth - a.incidentsThisMonth).map((u, i) => (
+                    {[...unitsList].sort((a, b) => b.incidentsThisMonth - a.incidentsThisMonth).map((u, i) => (
                       <tr key={u.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)", background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.02)" }}>
                         <td className="px-4 py-3 font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>{u.callsign}</td>
                         <td className="px-4 py-3" style={{ color: "rgba(255,255,255,0.5)" }}>{u.zone}</td>

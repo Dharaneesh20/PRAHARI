@@ -1,13 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Filter, Clock, Check, ChevronRight, X, MapPin, User, Radio } from "lucide-react";
-import { INCIDENTS } from "../mocks/incidents";
-import { UNITS } from "../mocks/units";
+import { Clock, Check, ChevronRight, X, MapPin, User, Radio } from "lucide-react";
 import GlassCard, { glassPanelStyle } from "../components/GlassCard";
 import { SeverityBadge, IncidentStatusBadge, UnitStatusBadge } from "../components/StatusBadge";
-import type { Incident, IncidentStatus, Severity } from "../mocks/types";
-
-let mockPool = [...INCIDENTS];
+import type { Incident, IncidentStatus, Severity } from "../lib/types";
+import { incidents as incidentsApi, units as unitsApi } from "../lib/api";
+import type { PatrolUnit } from "../lib/types";
 
 function timeAgo(ts: string) {
   const diff = (Date.now() - new Date(ts).getTime()) / 60000;
@@ -31,7 +29,9 @@ const INCIDENT_ICONS: Record<string, string> = {
 };
 
 export default function LiveIncidents() {
-  const [incidents, setIncidents] = useState<Incident[]>([...INCIDENTS]);
+  const [incidentsList, setIncidentsList] = useState<Incident[]>([]);
+  const [unitsList, setUnitsList] = useState<PatrolUnit[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Incident | null>(null);
   const [filterSeverity, setFilterSeverity] = useState<Severity | "all">("all");
   const [filterStatus, setFilterStatus] = useState<IncidentStatus | "all">("all");
@@ -40,30 +40,36 @@ export default function LiveIncidents() {
   const [newPulse, setNewPulse] = useState<string | null>(null);
   const feedRef = useRef<HTMLDivElement>(null);
 
-  // Simulate new incident arriving
+  // Load initial data from backend
   useEffect(() => {
-    const t = setInterval(() => {
-      const fakeNew: Incident = {
-        id: `INC-SIM-${Date.now()}`,
-        type: (["Theft", "Assault", "Traffic Violation"] as const)[Math.floor(Math.random() * 3)],
-        severity: (["low", "medium", "high"] as const)[Math.floor(Math.random() * 3)],
-        status: "new",
-        location: { lat: 12.97, lng: 77.60, zone: ["MG Road", "Shivajinagar", "Cubbon Park"][Math.floor(Math.random() * 3)], address: "Simulated location" },
-        timestamp: new Date().toISOString(),
-        description: "New incident reported. Units being notified.",
-        source: (["citizen", "sensor", "officer"] as const)[Math.floor(Math.random() * 3)],
-        assignedUnitId: null, stationId: "STN-BLR-01",
-        timeline: [{ time: new Date().toISOString(), action: "Incident created", by: "System" }],
-      };
-      setIncidents(p => [fakeNew, ...p]);
-      setNewPulse(fakeNew.id);
-      setTimeout(() => setNewPulse(null), 3000);
-      if (feedRef.current) feedRef.current.scrollTop = 0;
-    }, 18000);
-    return () => clearInterval(t);
+    Promise.all([incidentsApi.list(), unitsApi.list()])
+      .then(([inc, u]) => { setIncidentsList(inc); setUnitsList(u); })
+      .catch(console.error)
+      .finally(() => setLoading(false));
   }, []);
 
-  const filtered = incidents.filter(i => {
+  // WebSocket live stream for new incidents
+  useEffect(() => {
+    let ws: WebSocket;
+    try {
+      ws = incidentsApi.stream();
+      ws.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data);
+          if (msg.event === "new_incident") {
+            const newInc: Incident = msg.data;
+            setIncidentsList(p => [newInc, ...p]);
+            setNewPulse(newInc.id);
+            setTimeout(() => setNewPulse(null), 3000);
+            if (feedRef.current) feedRef.current.scrollTop = 0;
+          }
+        } catch { /* ignore malformed */ }
+      };
+    } catch { /* WS not available */ }
+    return () => ws?.close();
+  }, []);
+
+  const filtered = incidentsList.filter(i => {
     if (filterSeverity !== "all" && i.severity !== filterSeverity) return false;
     if (filterStatus !== "all" && i.status !== filterStatus) return false;
     return true;
@@ -72,7 +78,26 @@ export default function LiveIncidents() {
   const toggleSelect = (id: string) =>
     setMultiSelect(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
 
-  const availableUnits = UNITS.filter(u => u.status === "on-patrol" || u.status === "on-break");
+  const availableUnits = unitsList.filter(u => u.status === "on-patrol" || u.status === "on-break");
+
+  const handleAssign = async (incidentId: string, unitId: string) => {
+    try {
+      await incidentsApi.assign(incidentId, unitId);
+      setIncidentsList(p => p.map(i => i.id === incidentId ? { ...i, assignedUnitId: unitId, status: "dispatched" } : i));
+      setSelected(prev => prev && prev.id === incidentId ? { ...prev, assignedUnitId: unitId } : prev);
+    } catch (err) { console.error("Assign failed", err); }
+    setShowAssign(false);
+  };
+
+  const handleResolve = async (incidentId: string) => {
+    try {
+      await incidentsApi.updateStatus(incidentId, "resolved");
+      setIncidentsList(p => p.map(i => i.id === incidentId ? { ...i, status: "resolved" } : i));
+      setSelected(prev => prev && prev.id === incidentId ? { ...prev, status: "resolved" } : prev);
+    } catch (err) { console.error("Resolve failed", err); }
+  };
+
+  if (loading) return <div className="flex items-center justify-center h-full" style={{ color: "rgba(255,255,255,0.4)" }}><p>Loading incidents...</p></div>;
 
   return (
     <div className="flex h-full w-full overflow-hidden">
@@ -85,7 +110,7 @@ export default function LiveIncidents() {
           <div className="flex items-center justify-between mb-3">
             <div>
               <h1 className="font-bold" style={{ color: "rgba(255,255,255,0.92)" }}>Live Incidents</h1>
-              <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>{incidents.filter(i => i.status !== "resolved").length} active</p>
+              <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>{incidentsList.filter(i => i.status !== "resolved").length} active</p>
             </div>
             <AnimatePresence>
               {multiSelect.length > 0 && (
@@ -230,7 +255,7 @@ export default function LiveIncidents() {
                 >
                   Assign Patrol Unit
                 </button>
-                <button className="px-4 py-2.5 rounded-xl font-bold text-sm" style={{ background: "rgba(46,158,108,0.15)", color: "#2E9E6C", border: "1px solid rgba(46,158,108,0.3)" }}>
+                <button onClick={() => handleResolve(selected.id)} className="px-4 py-2.5 rounded-xl font-bold text-sm" style={{ background: "rgba(46,158,108,0.15)", color: "#2E9E6C", border: "1px solid rgba(46,158,108,0.3)" }}>
                   Mark Resolved
                 </button>
               </div>
@@ -248,11 +273,7 @@ export default function LiveIncidents() {
                         {availableUnits.map(u => (
                           <button
                             key={u.id}
-                            onClick={() => {
-                              setIncidents(p => p.map(i => i.id === selected.id ? { ...i, assignedUnitId: u.id } : i));
-                              setSelected(prev => prev ? { ...prev, assignedUnitId: u.id } : null);
-                              setShowAssign(false);
-                            }}
+                            onClick={() => handleAssign(selected.id, u.id)}
                             className="flex items-center gap-3 p-3 rounded-xl transition-all hover:bg-white/10 text-left"
                             style={{ border: "1px solid rgba(255,255,255,0.07)" }}
                           >

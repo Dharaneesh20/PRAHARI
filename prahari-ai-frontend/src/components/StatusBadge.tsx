@@ -1,4 +1,4 @@
-import type { Severity, IncidentStatus, UnitStatus } from "../mocks/types";
+import type { Severity, IncidentStatus, UnitStatus } from "../lib/types";
 
 // ── Severity Badge ───────────────────────────────────────────
 const SEVERITY_MAP: Record<Severity, { label: string; bg: string; color: string; dot: string }> = {

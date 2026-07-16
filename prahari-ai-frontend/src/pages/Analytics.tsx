@@ -1,13 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Info } from "lucide-react";
+import { BarChart2, Map, Users, Clock, TrendingUp, Shield } from "lucide-react";
 import GlassCard, { glassPanelStyle } from "../components/GlassCard";
 import { SvgAreaChart, SvgBarChart } from "../components/SvgChart";
 import DateRangePicker, { type DateRange } from "../components/DateRangePicker";
-import {
-  CRIME_BY_CATEGORY, TIME_HEATMAP, YOY_DATA, RISK_ZONES,
-  STATION_COMPARISON, DEMOGRAPHICS_AGE, DEMOGRAPHICS_TIME,
-} from "../mocks/analytics";
+import { analytics as analyticsApi } from "../lib/api";
+import type { CrimeCategory, RiskZone, StationStats, AgeGroup, TimeSlot } from "../lib/types";
 
 type Tab = "patterns" | "risk" | "stations" | "demographics";
 const TABS: { value: Tab; label: string }[] = [
@@ -21,10 +19,10 @@ const RISK_COLOR = (score: number) =>
   score >= 80 ? "#D14343" : score >= 65 ? "#F97316" : score >= 50 ? "#C9A227" : "#2E9E6C";
 
 // ─── Heatmap Grid ────────────────────────────────────────────
-function TimeHeatmap() {
+function TimeHeatmap({ data }: { data: { day: string; hour: number; value: number }[] }) {
   const HOURS = Array.from({ length: 24 }, (_, i) => i);
   const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  const max = Math.max(...TIME_HEATMAP.map(c => c.value));
+  const max = Math.max(...data.map(c => c.value), 1);
 
   return (
     <div className="w-full overflow-x-auto">
@@ -43,7 +41,7 @@ function TimeHeatmap() {
               {day}
             </div>
             {HOURS.map(h => {
-              const cell = TIME_HEATMAP.find(c => c.day === day && c.hour === h);
+              const cell = data.find(c => c.day === day && c.hour === h);
               const v = cell?.value ?? 0;
               const intensity = v / max;
               return (
@@ -107,6 +105,31 @@ export default function Analytics() {
   const [explainZone, setExplainZone] = useState<string | null>(null);
   const [sortCol, setSortCol] = useState<"clearanceRate" | "avgResponse" | "caseVolume">("clearanceRate");
 
+  const [categories, setCategories] = useState<CrimeCategory[]>([]);
+  const [riskZones, setRiskZones] = useState<RiskZone[]>([]);
+  const [stations, setStations] = useState<StationStats[]>([]);
+  const [ageGroups, setAgeGroups] = useState<AgeGroup[]>([]);
+  const [timeDistribution, setTimeDistribution] = useState<TimeSlot[]>([]);
+  const [heatmapData] = useState<{ day: string; hour: number; value: number }[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      analyticsApi.patterns(),
+      analyticsApi.risk(),
+      analyticsApi.stations(),
+      analyticsApi.demographics(),
+    ]).then(([pat, risk, stat, demo]) => {
+      setCategories(pat.categories);
+      setRiskZones(risk);
+      setStations(stat);
+      setAgeGroups(demo.ageGroups);
+      setTimeDistribution(demo.timeDistribution);
+    }).catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div className="flex items-center justify-center h-full" style={{ color: "rgba(255,255,255,0.4)" }}><p>Loading analytics...</p></div>;
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
