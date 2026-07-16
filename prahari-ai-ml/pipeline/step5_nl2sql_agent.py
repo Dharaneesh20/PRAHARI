@@ -23,10 +23,8 @@ import re
 import json
 import time
 import duckdb
-import dotenv
 import pandas as pd
 from datetime import datetime, timezone
-
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -37,10 +35,10 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(BASE_DIR, "db", "karnataka_fir.duckdb")
 WIDE_AGG_CSV = os.path.join(BASE_DIR, "outputs", "dashboard_wide_aggregated.csv")
 GEO_REAL_ONLY_CSV = os.path.join(BASE_DIR, "outputs", "dashboard_geo_real_only.csv")
+
 AUDIT_LOG_PATH = os.path.join(BASE_DIR, "outputs", "nl2sql_audit_log.jsonl")
 
 MODEL = "llama-3.3-70b-versatile"
-
 
 client = Groq()  # reads GROQ_API_KEY from env
 
@@ -84,12 +82,24 @@ BUSINESS GLOSSARY (Karnataka Police FIR data):
   CaseMaster links to BOTH via CrimeMajorHeadID -> CrimeHead and
   CrimeMinorHeadID -> CrimeSubHead.
 
-- IMPORTANT — crime name matching: when a question names a general crime type
-  (theft, robbery, assault, cheating, etc.), NEVER use an exact match
-  (CrimeHeadName = 'theft'). ALWAYS use LOWER(CrimeHeadName) LIKE '%theft%'
-  (or the equivalent term), because the real category names are specific
-  compound phrases, not the general term the user typed. An exact match will
-  silently return 0 rows even when matching cases genuinely exist.
+- IMPORTANT — crime name matching: crime names are stored in INCONSISTENT
+  casing across columns — CrimeHead.CrimeGroupName and trend_forecast's
+  CrimeGroup column are ALL CAPS (e.g. 'THEFT', 'CYBER CRIME'), while
+  CrimeSubHead.CrimeHeadName is Title Case compound phrases (e.g.
+  'House Theft'). When a question names a general crime type (theft,
+  robbery, assault, cheating, etc.), for ANY of these columns ALWAYS wrap
+  BOTH sides in LOWER() — `LOWER(column) LIKE '%theft%'` — never an exact
+  match and never assume the stored casing matches how the user typed it.
+  An exact or case-sensitive match will silently return 0 rows even when
+  matching cases genuinely exist. DuckDB's LIKE is case-sensitive by
+  default; ILIKE is also acceptable if you prefer it.
+
+- IMPORTANT — qualify column names in joins: CaseMasterID (and several
+  other columns) appear on MANY tables. Any query joining two or more
+  tables MUST qualify every column reference with its table name or alias
+  (e.g. `ChargesheetDetails.CaseMasterID`, not bare `CaseMasterID`) or
+  DuckDB will raise an "Ambiguous reference" error. This applies especially
+  to COUNT(), SUM(), and other aggregates over a joined column.
 
 - GravityOffence: only 2 real values in this data — "Heinous" and "Non Heinous" —
   sourced from the original FIR Type field. Not a severity score, a binary flag.
@@ -188,6 +198,19 @@ BUSINESS GLOSSARY (Karnataka Police FIR data):
   are restricted to real (non-imputed) coordinates already, and cover only
   the top 5 highest-volume real-coordinate districts — if asked about a
   district not covered, say so.
+
+- IMPORTANT — which model was used for hotspot detection: use
+  `hotspot_model_benchmark.IsSelectedModel = true` to find the winning
+  model for a district. NEVER determine the winner via
+  `ORDER BY SilhouetteScore DESC LIMIT 1` — the real selection rule
+  disqualifies any model whose NoiseRatio exceeds 70%, so the
+  highest-silhouette row is sometimes NOT the actual winner (confirmed
+  case: Belagavi Dist — DBSCAN has the highest raw silhouette there but
+  was excluded for 84% noise; the real winner is HDBSCAN). This logic is
+  precomputed in IsSelectedModel specifically because it can't be
+  correctly reconstructed from silhouette alone in a query. The same
+  model is also stored in hotspot_clusters.Model / hotspot_summary.Model
+  as a cross-check.
 """
 
 
@@ -369,11 +392,12 @@ def explain_result(question: str, sql: str, df: pd.DataFrame, route: str) -> str
 # ======================================================================
 # Audit log
 # ======================================================================
-def log_audit(question, route, sql, row_count, error, elapsed_s):
+def log_audit(question, route, sql, row_count, error, elapsed_s, repaired=False):
     entry = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "question": question, "route": route, "sql": sql,
         "row_count": row_count, "error": error, "elapsed_s": round(elapsed_s, 2),
+        "repaired": repaired,
     }
     with open(AUDIT_LOG_PATH, "a") as f:
         f.write(json.dumps(entry) + "\n")
@@ -383,25 +407,68 @@ def log_audit(question, route, sql, row_count, error, elapsed_s):
 # ======================================================================
 # Orchestration
 # ======================================================================
-def answer_question(con, question: str, schema_context: str) -> dict:
+def repair_sql(question: str, broken_sql: str, error: str, schema_context: str, route: str) -> str:
+    """
+    One-shot self-repair: feed the exact failure back to the model and ask
+    for a corrected query. Added after the same "Ambiguous reference to
+    CaseMasterID" error recurred TWICE despite an explicit glossary
+    instruction — proof that prompt-only fixes don't reliably hold for
+    this model on every generation, so the pipeline needs to recover from
+    the mistake rather than just try to prevent it harder.
+    """
+    hint = ROUTE_HINTS.get(route, "")
+    system = f"""You write DuckDB SQL for a Karnataka Police FIR analytics database.
+Only these tables/columns exist — never invent columns:
+
+{schema_context}
+
+{BUSINESS_GLOSSARY}
+
+{hint}
+
+Your previous SQL failed. Fix ONLY the specific problem in the error message —
+don't rewrite the query from scratch, don't change its intent. A common cause:
+an unqualified column name (e.g. bare `CaseMasterID`) that exists on multiple
+joined tables — qualify it with the correct table name/alias.
+
+Output ONLY the corrected SQL query. No markdown fences, no explanation.
+"""
+    user = f"Question: {question}\n\nPrevious SQL:\n{broken_sql}\n\nError:\n{error}\n\nCorrected SQL:"
+    resp = client.chat.completions.create(
+        model=MODEL, max_tokens=500, temperature=0,
+        messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+    )
+    sql = resp.choices[0].message.content.strip()
+    return re.sub(r"^```sql\s*|\s*```$", "", sql, flags=re.IGNORECASE | re.MULTILINE).strip()
+
+
+def answer_question(con, question: str, schema_context: str, max_repair_attempts: int = 1) -> dict:
     t0 = time.time()
     route = route_question(question)
     sql = generate_sql(question, route, schema_context)
-    ok, reason = validate_sql(sql)
 
-    if not ok:
-        log_audit(question, route, sql, None, reason, time.time() - t0)
-        return {"question": question, "route": route, "sql": sql, "error": reason, "answer": None}
+    attempts = 0
+    while True:
+        ok, reason = validate_sql(sql)
+        err = None if ok else reason
+        df = None
+        if ok:
+            df, err = execute_sql(con, sql)
 
-    df, err = execute_sql(con, sql)
-    if err:
-        log_audit(question, route, sql, None, err, time.time() - t0)
-        return {"question": question, "route": route, "sql": sql, "error": err, "answer": None}
+        if err is None:
+            break  # success
+        if attempts >= max_repair_attempts:
+            log_audit(question, route, sql, None, err, time.time() - t0, repaired=attempts > 0)
+            return {"question": question, "route": route, "sql": sql, "error": err,
+                    "answer": None, "repaired": attempts > 0}
+
+        attempts += 1
+        sql = repair_sql(question, sql, err, schema_context, route)
 
     answer = explain_result(question, sql, df, route)
-    log_audit(question, route, sql, len(df), None, time.time() - t0)
+    log_audit(question, route, sql, len(df), None, time.time() - t0, repaired=attempts > 0)
     return {"question": question, "route": route, "sql": sql, "error": None,
-            "answer": answer, "result_df": df}
+            "answer": answer, "result_df": df, "repaired": attempts > 0}
 
 
 if __name__ == "__main__":
@@ -420,10 +487,11 @@ if __name__ == "__main__":
     for q in test_questions:
         print(f"\nQ: {q}")
         result = answer_question(con, q, schema_context)
+        repair_note = " [SELF-REPAIRED]" if result.get("repaired") else ""
         if result["error"]:
-            print(f"  ERROR: {result['error']}\n  SQL: {result['sql']}")
+            print(f"  ERROR (after repair attempt): {result['error']}\n  SQL: {result['sql']}")
         else:
-            print(f"  Route: {result['route']}")
+            print(f"  Route: {result['route']}{repair_note}")
             print(f"  SQL: {result['sql']}")
             print(f"  Answer: {result['answer']}")
 

@@ -15,14 +15,14 @@ separately with a real key for that.
 Usage: python step7_test_suite.py
 Exit code 0 = all pass, 1 = at least one failure.
 """
-
+import os
 import sys
 import duckdb
 import pandas as pd
 import numpy as np
 
-DB_PATH = "/home/claude/work/pipeline/karnataka_fir.duckdb"
-
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DB_PATH = os.path.join(BASE_DIR, "db", "karnataka_fir.duckdb")
 PASS, FAIL = [], []
 
 
@@ -219,6 +219,44 @@ def test_nl2sql_agent_offline(con):
     real_cstypes = set(con.execute("SELECT DISTINCT cstype FROM ChargesheetDetails").fetchdf()["cstype"])
     check("Glossary's cstype codes match the real column values",
           real_cstypes == {"A", "B", "C"}, f"got {real_cstypes}")
+
+    # Regression checks for round-2 live-test failures: CrimeGroup casing
+    # (trend_forecast.CrimeGroup is ALL CAPS, e.g. 'THEFT'), ambiguous
+    # CaseMasterID across joins, and the hotspot winner-inference bug
+    # (Belagavi Dist: naive ORDER BY SilhouetteScore picks DBSCAN, which is
+    # wrong — the real winner, HDBSCAN, only wins after the noise floor).
+    check("Glossary generalizes case-insensitive matching beyond CrimeHeadName",
+          "trend_forecast's" in agent.BUSINESS_GLOSSARY and "ALL CAPS" in agent.BUSINESS_GLOSSARY)
+    check("Glossary warns about join column qualification", "Ambiguous reference" in agent.BUSINESS_GLOSSARY)
+    check("Glossary points at IsSelectedModel, not ORDER BY silhouette",
+          "IsSelectedModel" in agent.BUSINESS_GLOSSARY)
+
+    hmb_cols = con.execute("DESCRIBE hotspot_model_benchmark").fetchdf()["column_name"].tolist()
+    check("hotspot_model_benchmark has IsSelectedModel column", "IsSelectedModel" in hmb_cols)
+    if "IsSelectedModel" in hmb_cols:
+        per_district_winners = con.execute(
+            "SELECT District, COUNT(*) as n FROM hotspot_model_benchmark WHERE IsSelectedModel GROUP BY District"
+        ).fetchdf()
+        check("Every district has exactly one IsSelectedModel=true row",
+              (per_district_winners["n"] == 1).all(), f"got {per_district_winners.to_dict('records')}")
+
+        # The specific case that broke live: does IsSelectedModel actually
+        # match what hotspot_clusters really used?
+        mismatch = con.execute("""
+            SELECT b.District FROM hotspot_model_benchmark b
+            JOIN hotspot_clusters hc ON b.District = hc.District AND b.Model = hc.Model
+            WHERE b.IsSelectedModel = false
+        """).fetchdf()
+        check("IsSelectedModel agrees with the model actually used in hotspot_clusters",
+              len(mismatch) == 0, f"disagreements: {mismatch['District'].tolist() if len(mismatch) else []}")
+
+    # Case-sensitivity check: would a naive lowercase LIKE actually match
+    # the real stored CrimeGroup casing without LOWER()?
+    naive_match = con.execute("SELECT COUNT(*) FROM trend_forecast WHERE CrimeGroup LIKE '%theft%'").fetchone()[0]
+    correct_match = con.execute("SELECT COUNT(*) FROM trend_forecast WHERE LOWER(CrimeGroup) LIKE '%theft%'").fetchone()[0]
+    check("Confirms case-sensitivity trap exists (documents WHY the glossary rule matters)",
+          naive_match == 0 and correct_match > 0,
+          f"naive(no LOWER)={naive_match}, correct(LOWER)={correct_match} — if naive>0 the trap may no longer apply")
 
     validator_cases = [
         ("SELECT * FROM CaseMaster LIMIT 5", True),

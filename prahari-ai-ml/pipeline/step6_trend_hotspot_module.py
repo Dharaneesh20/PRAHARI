@@ -22,7 +22,6 @@ benchmark scorecard so the "why this model" story is auditable.
 
 import warnings
 warnings.filterwarnings("ignore")
-
 import os
 import duckdb
 import numpy as np
@@ -36,7 +35,7 @@ import hdbscan
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(BASE_DIR, "db", "karnataka_fir.duckdb")
-OUT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+OUT_DIR = os.path.join(BASE_DIR, "outputs")
 
 RANDOM_SEED = 42
 rng = np.random.default_rng(RANDOM_SEED)
@@ -274,7 +273,7 @@ def benchmark_hotspot_detection(con) -> tuple[pd.DataFrame, dict]:
             benchmark_rows.append({
                 "District": district, "Model": name, "NumClusters": n_clusters,
                 "NoiseRatio": round(noise_ratio, 3), "SilhouetteScore": round(sil, 3),
-                "NumPoints": len(pts),
+                "NumPoints": len(pts), "IsSelectedModel": False,  # set True for the winner below
             })
 
         # Model selection: raw silhouette on clustered points, but with a
@@ -288,11 +287,22 @@ def benchmark_hotspot_detection(con) -> tuple[pd.DataFrame, dict]:
         # >70% of a district's data and then getting a flattering silhouette
         # on the small, easy remainder — that's excluded outright rather
         # than partially discounted.
+        #
+        # CRITICAL: this selection logic (floor + silhouette) is NOT
+        # reconstructable from SQL alone — an agent doing
+        # `ORDER BY SilhouetteScore DESC LIMIT 1` will get the WRONG answer
+        # whenever the floor changes the outcome (confirmed: Belagavi Dist
+        # picks DBSCAN that way, but the real winner is HDBSCAN). That's why
+        # IsSelectedModel is precomputed and stored here, not left for the
+        # agent to infer.
         NOISE_RATIO_FLOOR = 0.70
         district_rows = [r for r in benchmark_rows if r["District"] == district]
         eligible = {r["Model"]: r["SilhouetteScore"] for r in district_rows if r["NoiseRatio"] <= NOISE_RATIO_FLOOR}
         best_model = max(eligible, key=eligible.get) if eligible else \
             max({r["Model"]: r["SilhouetteScore"] for r in district_rows}, key=lambda k: k)
+        for r in district_rows:
+            if r["Model"] == best_model:
+                r["IsSelectedModel"] = True
         pts["ClusterID"] = labels_by_model[best_model]
         pts["Model"] = best_model
         pts["District"] = district
