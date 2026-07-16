@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { BarChart2, Map, Users, Clock, TrendingUp, Shield } from "lucide-react";
+import { BarChart2, Map, Users, Clock, TrendingUp, Shield, Info } from "lucide-react";
 import GlassCard, { glassPanelStyle } from "../components/GlassCard";
 import { SvgAreaChart, SvgBarChart } from "../components/SvgChart";
 import DateRangePicker, { type DateRange } from "../components/DateRangePicker";
@@ -182,7 +182,7 @@ export default function Analytics() {
               {/* Crime by category */}
               <GlassCard title="Crime by Category" subtitle="Incidents this period">
                 <div className="flex flex-col gap-3">
-                  {CRIME_BY_CATEGORY.map((c, i) => (
+                  {categories.map((c, i) => (
                     <motion.div key={c.type} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}
                       className="flex items-center gap-3">
                       <span className="text-xs font-semibold w-24 shrink-0" style={{ color: "rgba(255,255,255,0.6)" }}>{c.type}</span>
@@ -205,36 +205,8 @@ export default function Analytics() {
 
               {/* Time Heatmap */}
               <GlassCard title="Incident Time Heatmap" subtitle="Day × Hour intensity">
-                <TimeHeatmap />
+                <TimeHeatmap data={heatmapData} />
               </GlassCard>
-
-              {/* YOY chart */}
-              {yoy && (
-                <GlassCard title="Year-over-Year Comparison" subtitle="2026 vs 2025">
-                  <div className="flex gap-4 mb-3 text-xs">
-                    <div className="flex items-center gap-1.5"><span className="w-5 h-0.5 inline-block rounded-full" style={{ background: "#C9A227" }} /><span style={{ color: "rgba(255,255,255,0.6)" }}>2026</span></div>
-                    <div className="flex items-center gap-1.5"><span className="w-5 h-0.5 inline-block rounded-full" style={{ background: "#3F5C86" }} /><span style={{ color: "rgba(255,255,255,0.6)" }}>2025</span></div>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    {YOY_DATA.map((d, i) => (
-                      <div key={d.month} className="flex items-center gap-3">
-                        <span className="text-xs w-10 shrink-0" style={{ color: "rgba(255,255,255,0.4)" }}>{d.month}</span>
-                        <div className="flex-1 flex flex-col gap-1">
-                          <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.05)" }}>
-                            <motion.div className="h-full rounded-full" initial={{ width: 0 }} animate={{ width: `${(d.current / 130) * 100}%` }} transition={{ delay: i * 0.05, duration: 0.7 }} style={{ background: "#C9A227" }} />
-                          </div>
-                          <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.05)" }}>
-                            <motion.div className="h-full rounded-full" initial={{ width: 0 }} animate={{ width: `${(d.previous / 130) * 100}%` }} transition={{ delay: i * 0.05 + 0.1, duration: 0.7 }} style={{ background: "#3F5C86" }} />
-                          </div>
-                        </div>
-                        <span className="text-xs font-semibold w-14 text-right" style={{ color: d.current < d.previous ? "#2E9E6C" : "#D14343" }}>
-                          {d.current < d.previous ? "▼" : "▲"} {Math.abs(d.current - d.previous)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </GlassCard>
-              )}
             </motion.div>
           )}
 
@@ -243,7 +215,7 @@ export default function Analytics() {
             <motion.div key="risk" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex flex-col gap-5">
               <GlassCard title="Risk Score by Zone" subtitle="AI-generated risk assessment with explainability">
                 <div className="flex flex-col gap-4">
-                  {RISK_ZONES.map((z, i) => (
+                  {riskZones.map((z, i) => (
                     <motion.div key={z.zone} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
                       className="flex flex-col gap-2">
                       <div className="flex items-center justify-between">
@@ -306,7 +278,7 @@ export default function Analytics() {
                       </tr>
                     </thead>
                     <tbody>
-                      {[...STATION_COMPARISON].sort((a, b) => {
+                      {[...stations].sort((a, b) => {
                         if (sortCol === "clearanceRate") return b.clearanceRate - a.clearanceRate;
                         if (sortCol === "avgResponse") return a.avgResponse - b.avgResponse;
                         return b.caseVolume - a.caseVolume;
@@ -351,7 +323,7 @@ export default function Analytics() {
 
               <GlassCard title="Age Group Distribution" subtitle="Offenders vs victims — aggregate, anonymized">
                 <div className="flex flex-col gap-3">
-                  {DEMOGRAPHICS_AGE.map((d, i) => (
+                  {ageGroups.map((d, i) => (
                     <div key={d.group} className="flex items-center gap-4">
                       <span className="text-xs w-12 shrink-0" style={{ color: "rgba(255,255,255,0.4)" }}>{d.group}</span>
                       <div className="flex-1 flex flex-col gap-1">
@@ -377,7 +349,7 @@ export default function Analytics() {
 
               <GlassCard title="Incidents by Time of Day" subtitle="Aggregate incident distribution across 24h">
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {DEMOGRAPHICS_TIME.map((d, i) => (
+                  {timeDistribution.map((d, i) => (
                     <motion.div key={d.slot} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}
                       className="rounded-xl p-3 text-center" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
                       <p className="text-2xl font-bold mb-1" style={{ color: i >= 2 ? "#D14343" : "#C9A227" }}>{d.incidents}</p>

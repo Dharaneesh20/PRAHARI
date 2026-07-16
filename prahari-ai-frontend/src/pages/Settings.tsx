@@ -236,9 +236,10 @@ export default function Settings() {
                   </button>
                 </div>
               </GlassCard>
-              <GlassCard title="Active Sessions">
+              {/* Active Sessions */}
+              <GlassCard title="Active Sessions" subtitle="Manage your active logins">
                 <div className="flex flex-col gap-3">
-                  {ACTIVE_SESSIONS.map(s => (
+                  {[].map((s: any) => (
                     <div key={s.id} className="flex items-center gap-3 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.8)" }}>{s.device}</p>

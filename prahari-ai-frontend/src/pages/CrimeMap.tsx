@@ -6,8 +6,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { SlidersHorizontal, X, Layers, Map, Zap, Shield } from "lucide-react";
 import { glassPanelStyle } from "../components/GlassCard";
 import { SeverityBadge, IncidentStatusBadge } from "../components/StatusBadge";
-import type { CrimeType, Severity, Incident, PatrolUnit } from "../lib/types";
-import { incidents as incidentsApi, units as unitsApi } from "../lib/api";
+import type { CrimeType, Severity, Incident, PatrolUnit, HotspotZone } from "../lib/types";
+import { incidents as incidentsApi, units as unitsApi, kpi as kpiApi } from "../lib/api";
 
 const SEVERITY_COLORS: Record<Severity, string> = {
   critical: "#D14343", high: "#F97316", medium: "#C9A227", low: "#2E9E6C",
@@ -44,11 +44,12 @@ export default function CrimeMap() {
 
   const [incidentsList, setIncidentsList] = useState<Incident[]>([]);
   const [unitsList, setUnitsList] = useState<PatrolUnit[]>([]);
+  const [hotspotsList, setHotspotsList] = useState<HotspotZone[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([incidentsApi.list(), unitsApi.list()])
-      .then(([inc, u]) => { setIncidentsList(inc); setUnitsList(u); })
+    Promise.all([incidentsApi.list(), unitsApi.list(), kpiApi.hotspots()])
+      .then(([inc, u, hs]) => { setIncidentsList(inc); setUnitsList(u); setHotspotsList(hs); })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
@@ -112,6 +113,29 @@ export default function CrimeMap() {
             <Popup><div className="text-xs p-1"><strong>{u.callsign}</strong><br />{u.zone}</div></Popup>
           </CircleMarker>
         ))}
+
+        {/* Hotspot zones */}
+        {layers.heatmap && hotspotsList.map((spot, i) => (
+          <CircleMarker
+            key={`hotspot-${i}`}
+            center={[spot.coords.lat, spot.coords.lng]}
+            radius={spot.severity === "critical" ? 20 : spot.severity === "high" ? 15 : 10}
+            pathOptions={{
+              color: SEVERITY_COLORS[spot.severity],
+              fillColor: SEVERITY_COLORS[spot.severity],
+              fillOpacity: 0.4,
+              weight: 0
+            }}
+          >
+            <Popup className="prahari-popup">
+              <div className="text-center p-1">
+                <h4 className="font-bold text-sm" style={{ color: "#000" }}>{spot.zone}</h4>
+                <p className="text-xs mt-1" style={{ color: "#333" }}>Risk: <strong className="uppercase">{spot.severity}</strong></p>
+                <p className="text-xs" style={{ color: "#333" }}>Incidents: <strong>{spot.incidents}</strong></p>
+              </div>
+            </Popup>
+          </CircleMarker>
+        ))}
       </MapContainer>
 
       {/* ── Layer Toggle ─────────────────────────────────────── */}
@@ -119,6 +143,7 @@ export default function CrimeMap() {
         {[
           { key: "markers" as const, icon: <Zap className="w-4 h-4" />, label: "Incidents" },
           { key: "patrol" as const, icon: <Shield className="w-4 h-4" />, label: "Patrol" },
+          { key: "heatmap" as const, icon: <Map className="w-4 h-4" />, label: "Hotspots" },
         ].map(({ key, icon, label }) => (
           <button
             key={key}

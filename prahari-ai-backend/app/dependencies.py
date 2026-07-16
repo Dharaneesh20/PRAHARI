@@ -4,17 +4,21 @@ JWT Bearer token validation for protected endpoints.
 """
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy.orm import Session
 
 from app.services.auth_service import decode_token
+from app.core.db import get_auth_db
+from app.models.user import User
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
-) -> dict:
+    db: Session = Depends(get_auth_db)
+) -> User:
     """
-    FastAPI dependency that validates the Bearer JWT and returns the user dict.
+    FastAPI dependency that validates the Bearer JWT and returns the User model.
     Raises HTTP 401 if the token is missing or invalid.
     """
     if credentials is None:
@@ -24,7 +28,7 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    user = decode_token(credentials.credentials)
+    user = decode_token(credentials.credentials, db)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -46,8 +50,8 @@ class RoleChecker:
     def __init__(self, required_level: int):
         self.required_level = required_level
 
-    def __call__(self, user: dict = Depends(get_current_user)) -> dict:
-        user_level = user.get("clearance_level", 1)
+    def __call__(self, user: User = Depends(get_current_user)) -> User:
+        user_level = user.clearance_level
         if user_level < self.required_level:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

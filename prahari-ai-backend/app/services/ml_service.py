@@ -519,7 +519,7 @@ def get_forecast_benchmarks(con, district: str, crime_group: str) -> dict:
     }
 
 
-def run_nl2sql(con, question: str) -> dict:
+def run_nl2sql(con, question: str, clearance_level: int = 1) -> dict:
     """Call the NL2SQL pipeline from step5_nl2sql_agent.py."""
     if con is None:
         return {
@@ -542,7 +542,7 @@ def run_nl2sql(con, question: str) -> dict:
         # Lazy import — only works if the ML pipeline directory is on sys.path
         from step5_nl2sql_agent import answer_question, get_schema_context  # type: ignore
         schema_context = get_schema_context(con)
-        result = answer_question(con, question, schema_context)
+        result = answer_question(con, question, schema_context, clearance_level)
 
         df = result.get("result_df")
         data = df.to_dict(orient="records") if df is not None else []

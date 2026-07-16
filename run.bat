@@ -49,7 +49,7 @@ cd ..
 echo.
 
 :: ── BACKEND VENV CHECK ───────────────────────────────────────────────────────
-echo [2/3] Checking Backend Virtual Environment...
+echo [2/4] Checking Backend Virtual Environment...
 cd prahari-ai-backend
 if not exist venv (
     echo Virtual environment 'venv' not found. Creating it...
@@ -63,8 +63,40 @@ if not exist venv (
 cd ..
 echo.
 
+:: ── ML PIPELINE CHECK ────────────────────────────────────────────────────────
+echo [3/4] ML Pipeline Execution
+echo Do you want to run the ML pipeline before starting the servers?
+echo (This will generate the synthetic dataset and DuckDB files if they don't exist)
+set /p run_ml="Run ML Pipeline? (y/n) [n]: "
+if /i "%run_ml%"=="y" (
+    echo Setting up ML pipeline...
+    cd prahari-ai-ml
+    if not exist venv (
+        python -m venv venv
+        call venv\Scripts\activate.bat
+        pip install -r requirements.txt
+    ) else (
+        call venv\Scripts\activate.bat
+    )
+    echo Running pipeline scripts...
+    cd pipeline
+    set LLM_PROVIDER=%LLM_PROVIDER%
+    set LLM_URL=%LLM_URL%
+    python step1_geo_imputation.py
+    python step2_lookup_tables.py
+    python step2b_case_master.py
+    python step3_pii_synthesis.py
+    python step4_feature_engineering.py
+    python step5_nl2sql_agent.py
+    python step6_trend_hotspot_module.py
+    python step7_test_suite.py
+    cd ..\..
+    echo ML Pipeline Complete!
+)
+echo.
+
 :: ── LAUNCH SYSTEM ────────────────────────────────────────────────────────────
-echo [3/3] Launching Prahari AI Application Stack...
+echo [4/4] Launching Prahari AI Application Stack...
 echo.
 echo Launching Backend FastAPI Server (Port 8000)...
 start "Prahari AI - Backend" cmd /k "cd prahari-ai-backend && call venv\Scripts\activate.bat && set LLM_PROVIDER=%LLM_PROVIDER%&& set LLM_URL=%LLM_URL%&& python run.py"

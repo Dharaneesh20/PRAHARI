@@ -5,6 +5,7 @@ Bridges DuckDB + ML pipeline functions to the frontend.
 """
 from typing import List, Optional
 
+from app.models.user import User
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.dependencies import get_current_user
@@ -22,6 +23,8 @@ from app.models.ml import (
     NL2SQLRequest,
     NL2SQLResponse,
 )
+from app.models.chat import ChatSession, ChatMessage
+from app.core.db import get_auth_db
 
 router = APIRouter()
 
@@ -39,7 +42,7 @@ async def crime_volume(
     crime_group: Optional[str] = Query(default=None, description="Major crime head group"),
     gravity: Optional[str] = Query(default=None, description="Heinous or Non Heinous"),
     year: Optional[int] = Query(default=None, description="Calendar year"),
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db=Depends(get_db),
 ):
     """
@@ -60,7 +63,7 @@ async def chargesheet_rates(
         description="Comma-separated district names (e.g. 'Bengaluru City,Mysuru City')",
     ),
     year: Optional[int] = Query(default=None, description="Filter by year"),
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db=Depends(get_db),
 ):
     """
@@ -83,7 +86,7 @@ async def chargesheet_rates(
 async def crime_hotspots(
     district: str = Query(..., description="Target district name (e.g. 'Bengaluru City')"),
     min_cases: int = Query(default=5, ge=1, description="Minimum real-coordinate case count"),
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db=Depends(get_db),
 ):
     """
@@ -100,7 +103,7 @@ async def crime_hotspots(
 )
 async def crime_clusters(
     district: str = Query(..., description="Target district name"),
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db=Depends(get_db),
 ):
     """
@@ -120,7 +123,7 @@ async def crime_clusters(
 async def repeat_offenders(
     district: Optional[str] = Query(default=None, description="Filter by district"),
     crime_group: Optional[str] = Query(default=None, description="Filter by crime group"),
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db=Depends(get_db),
 ):
     """
@@ -138,7 +141,7 @@ async def repeat_offenders(
 async def coaccused_network(
     district: str = Query(..., description="Target district (e.g. 'Bengaluru City')"),
     min_weight: int = Query(default=2, ge=1, description="Minimum co-accused occurrences for an edge"),
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db=Depends(get_db),
 ):
     """
@@ -158,7 +161,7 @@ async def coaccused_network(
 async def crime_forecast(
     district: str = Query(..., description="Target district"),
     crime_group: str = Query(..., description="Major crime group (e.g. 'THEFT')"),
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db=Depends(get_db),
 ):
     """
@@ -176,7 +179,7 @@ async def crime_forecast(
 async def forecast_benchmarks(
     district: str = Query(..., description="Target district"),
     crime_group: str = Query(..., description="Major crime group"),
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db=Depends(get_db),
 ):
     """
@@ -195,16 +198,55 @@ async def forecast_benchmarks(
 )
 async def nl2sql(
     body: NL2SQLRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db=Depends(get_db),
+    auth_db=Depends(get_auth_db)
 ):
     """
     Processes natural language questions, translates them to validated DuckDB SQL
     via the Groq LLM (llama-3.3-70b-versatile), executes the query, and returns
     structured data alongside a plain-English answer.
-
-    Requires GROQ_API_KEY to be configured. Falls back to a mock response otherwise.
     """
     if not body.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
-    return ml_service.run_nl2sql(db, body.question)
+        
+    clearance_level = current_user.clearance_level
+    result = ml_service.run_nl2sql(db, body.question, clearance_level=clearance_level)
+    
+    # Check if this is a general greeting or non-sql
+    if result.get("route") == "greeting" or result.get("route") == "conversational":
+        pass # We still want to save conversational messages
+        
+    session_id = body.session_id
+    if not session_id:
+        new_session = ChatSession(
+            user_badge_id=current_user.badge_id,
+            title=body.question[:40] + ("..." if len(body.question) > 40 else "")
+        )
+        auth_db.add(new_session)
+        auth_db.commit()
+        auth_db.refresh(new_session)
+        session_id = new_session.id
+
+    # Save user message
+    auth_db.add(ChatMessage(session_id=session_id, sender="user", text=body.question))
+    
+    # Save bot message
+    auth_db.add(ChatMessage(session_id=session_id, sender="bot", text=result["answer"]))
+    auth_db.commit()
+    
+    result["session_id"] = session_id
+    return result
+
+@router.get("/chat/sessions", summary="Get user chat history")
+async def get_chat_sessions(current_user: User = Depends(get_current_user), auth_db=Depends(get_auth_db)):
+    sessions = auth_db.query(ChatSession).filter(ChatSession.user_badge_id == current_user.badge_id).order_by(ChatSession.created_at.desc()).all()
+    return [{"id": s.id, "title": s.title, "created_at": s.created_at} for s in sessions]
+
+@router.get("/chat/sessions/{session_id}/messages", summary="Get messages in a session")
+async def get_chat_messages(session_id: int, current_user: User = Depends(get_current_user), auth_db=Depends(get_auth_db)):
+    session = auth_db.query(ChatSession).filter(ChatSession.id == session_id, ChatSession.user_badge_id == current_user.badge_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    messages = auth_db.query(ChatMessage).filter(ChatMessage.session_id == session_id).order_by(ChatMessage.created_at.asc()).all()
+    return [{"id": m.id, "sender": m.sender, "text": m.text, "created_at": m.created_at} for m in messages]

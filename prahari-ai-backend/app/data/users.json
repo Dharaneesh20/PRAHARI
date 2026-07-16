@@ -1,0 +1,74 @@
+{
+    "KSP-INS-8921": {
+        "id": "USR-001",
+        "name": "Inspector Rajesh Kumar",
+        "badgeId": "KSP-INS-8921",
+        "rank": "Police Inspector",
+        "station": "Koramangala Police Station",
+        "role": "Investigator",
+        "email": "raj.kumar@ksp.gov.in",
+        "phone": "+91-94481-11111",
+        "clearance_level": 1,
+        "hashed_password": "a6ee7faa319b873b4633d732d64a16cb937f9bac943b3b171ba3ecc03024d352"
+    },
+    "KSP-SI-4412": {
+        "id": "USR-002",
+        "name": "Sub-Inspector Priya Nair",
+        "badgeId": "KSP-SI-4412",
+        "rank": "Sub-Inspector",
+        "station": "MG Road Police Station",
+        "role": "Dispatcher",
+        "email": "priya.nair@ksp.gov.in",
+        "phone": "+91-94482-22222",
+        "clearance_level": 1,
+        "hashed_password": "a6ee7faa319b873b4633d732d64a16cb937f9bac943b3b171ba3ecc03024d352"
+    },
+    "KSP-DSP-0071": {
+        "id": "USR-003",
+        "name": "DSP Arvind Shankar",
+        "badgeId": "KSP-DSP-0071",
+        "rank": "DySP",
+        "station": "Central Division HQ",
+        "role": "Supervisor",
+        "email": "a.shankar@ksp.gov.in",
+        "phone": "+91-94483-33333",
+        "clearance_level": 2,
+        "hashed_password": "a6ee7faa319b873b4633d732d64a16cb937f9bac943b3b171ba3ecc03024d352"
+    },
+    "KSP-HC-3301": {
+        "id": "USR-004",
+        "name": "HC Suresh Patil",
+        "badgeId": "KSP-HC-3301",
+        "rank": "Head Constable",
+        "station": "Banashankari Police Station",
+        "role": "Patrol",
+        "email": "s.patil@ksp.gov.in",
+        "phone": "+91-94484-44444",
+        "clearance_level": 1,
+        "hashed_password": "a6ee7faa319b873b4633d732d64a16cb937f9bac943b3b171ba3ecc03024d352"
+    },
+    "KSP-ACP-0002": {
+        "id": "USR-005",
+        "name": "ACP Meera Desai",
+        "badgeId": "KSP-ACP-0002",
+        "rank": "ACP",
+        "station": "South Division HQ",
+        "role": "Analyst",
+        "email": "m.desai@ksp.gov.in",
+        "phone": "+91-94485-55555",
+        "clearance_level": 2,
+        "hashed_password": "a6ee7faa319b873b4633d732d64a16cb937f9bac943b3b171ba3ecc03024d352"
+    },
+    "KSP-IGP-9999": {
+        "id": "USR-006",
+        "name": "IGP Prakash Rao",
+        "badgeId": "KSP-IGP-9999",
+        "rank": "IGP",
+        "station": "State Police HQ",
+        "role": "Commander",
+        "email": "p.rao@ksp.gov.in",
+        "phone": "+91-94486-66666",
+        "clearance_level": 3,
+        "hashed_password": "a6ee7faa319b873b4633d732d64a16cb937f9bac943b3b171ba3ecc03024d352"
+    }
+}

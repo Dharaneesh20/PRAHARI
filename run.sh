@@ -69,7 +69,7 @@ cd ..
 echo ""
 
 # ── BACKEND VENV CHECK ───────────────────────────────────────────────────────
-echo "[2/3] Checking Backend Virtual Environment..."
+echo "[2/4] Checking Backend Virtual Environment..."
 cd prahari-ai-backend
 if [ ! -d "venv" ]; then
     echo "Virtual environment 'venv' not found. Creating it..."
@@ -83,8 +83,42 @@ fi
 cd ..
 echo ""
 
+# ── ML PIPELINE CHECK ────────────────────────────────────────────────────────
+echo "[3/4] ML Pipeline Execution"
+echo "Do you want to run the ML pipeline before starting the servers?"
+echo "(This will generate the synthetic dataset and DuckDB files if they don't exist)"
+read -p "Run ML Pipeline? (y/n) [n]: " run_ml
+run_ml=${run_ml:-n}
+
+if [[ "$run_ml" =~ ^[Yy]$ ]]; then
+    echo "Setting up ML pipeline..."
+    cd prahari-ai-ml
+    if [ ! -d "venv" ]; then
+        python3 -m venv venv
+        source venv/bin/activate
+        pip install -r requirements.txt
+    else
+        source venv/bin/activate
+    fi
+    echo "Running pipeline scripts..."
+    cd pipeline
+    export LLM_PROVIDER=$LLM_PROVIDER
+    export LLM_URL=$LLM_URL
+    python step1_geo_imputation.py
+    python step2_lookup_tables.py
+    python step2b_case_master.py
+    python step3_pii_synthesis.py
+    python step4_feature_engineering.py
+    python step5_nl2sql_agent.py
+    python step6_trend_hotspot_module.py
+    python step7_test_suite.py
+    cd ../..
+    echo "ML Pipeline Complete!"
+fi
+echo ""
+
 # ── LAUNCH SYSTEM ────────────────────────────────────────────────────────────
-echo "[3/3] Launching Prahari AI Application Stack..."
+echo "[4/4] Launching Prahari AI Application Stack..."
 echo ""
 
 echo "Launching Backend FastAPI Server (Port 8000)..."

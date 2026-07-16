@@ -2,7 +2,9 @@
 from datetime import datetime, timezone
 from typing import List
 
+from app.models.user import User
 from fastapi import APIRouter, Depends, HTTPException
+from app.models.user import User
 from fastapi.responses import StreamingResponse
 
 from app.dependencies import get_current_user
@@ -14,7 +16,7 @@ router = APIRouter()
 
 
 @router.get("", response_model=List[Report], summary="List all reports")
-async def list_reports(current_user: dict = Depends(get_current_user)):
+async def list_reports(current_user: User = Depends(get_current_user)):
     """Return all available case reports and summaries."""
     return mock_store.get_all_reports()
 
@@ -22,7 +24,7 @@ async def list_reports(current_user: dict = Depends(get_current_user)):
 @router.post("/generate", summary="Generate AI FIR/report draft (SSE)")
 async def generate_report(
     body: GenerateReportRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Streams AI-generated report content token-by-token as Server-Sent Events.
@@ -42,7 +44,7 @@ async def generate_report(
 async def update_report(
     report_id: str,
     body: UpdateReportRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Save edits to a report's title and/or sections."""
     sections_data = None

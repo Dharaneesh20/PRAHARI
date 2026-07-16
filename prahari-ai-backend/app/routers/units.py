@@ -2,9 +2,10 @@
 import asyncio
 from typing import List
 
+from app.models.user import User
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, require_level_1
 from app.models.units import PatrolUnit, UpdateUnitStatusRequest, UpdateUnitStatusResponse
 from app.services import mock_store
 from app.services.websocket_manager import unit_manager, simulate_unit_positions
@@ -15,7 +16,7 @@ _pos_task: asyncio.Task | None = None
 
 
 @router.get("", response_model=List[PatrolUnit], summary="List all patrol units")
-async def list_units(current_user: dict = Depends(get_current_user)):
+async def list_units(current_user: User = Depends(require_level_1)):
     """Return all patrol units with their current status and position."""
     return mock_store.get_all_units()
 
@@ -24,7 +25,7 @@ async def list_units(current_user: dict = Depends(get_current_user)):
 async def update_unit_status(
     unit_id: str,
     body: UpdateUnitStatusRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(require_level_1),
 ):
     """Update operational status of a patrol unit."""
     unit = mock_store.update_unit_status(unit_id, body.status)

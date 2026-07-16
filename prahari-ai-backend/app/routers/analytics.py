@@ -1,5 +1,6 @@
 """Analytics router — /analytics/patterns, /risk, /stations, /demographics"""
 from typing import List
+from app.models.user import User
 from fastapi import APIRouter, Depends
 from app.dependencies import get_current_user
 from app.models.analytics import (
@@ -15,7 +16,7 @@ router = APIRouter()
 
 @router.get("/patterns", response_model=PatternsResponse, summary="Crime category breakdown")
 async def get_patterns(
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db=Depends(get_db),
 ):
     """Returns crime type category breakdown percentages for the analytics panel."""
@@ -40,7 +41,7 @@ async def get_patterns(
 
 @router.get("/risk", response_model=List[RiskZone], summary="Predictive risk scores per zone")
 async def get_risk(
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db=Depends(get_db),
 ):
     """Returns AI-predicted risk scores and trend data for each zone."""
@@ -78,7 +79,7 @@ async def get_risk(
 
 @router.get("/stations", response_model=List[StationStats], summary="Station performance comparison")
 async def get_station_stats(
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db=Depends(get_db),
 ):
     """Returns comparative performance metrics for police stations."""
@@ -112,7 +113,7 @@ async def get_station_stats(
 
 
 @router.get("/demographics", response_model=DemographicsResponse, summary="Anonymized demographics")
-async def get_demographics(current_user: dict = Depends(get_current_user)):
+async def get_demographics(current_user: User = Depends(get_current_user)):
     """Returns anonymized offender/victim age group and time-of-day distribution."""
     return {
         "ageGroups": [

@@ -1,5 +1,6 @@
 """KPI Dashboard router — /kpi/summary, /kpi/trend, /kpi/hotspots"""
 from typing import Literal, List
+from app.models.user import User
 from fastapi import APIRouter, Depends, Query
 from app.dependencies import get_current_user
 from app.models.kpi import KPISummary, TrendPoint, Hotspot, HotspotCoords
@@ -16,8 +17,8 @@ def _day_label(days_ago: int) -> str:
 
 @router.get("/summary", response_model=KPISummary, summary="Top-level KPI metrics")
 async def get_kpi_summary(
-    range: Literal["today", "7d", "30d"] = "7d",
-    current_user: dict = Depends(get_current_user),
+    range_val: Literal["today", "7d", "30d"] = Query("7d", alias="range"),
+    current_user: User = Depends(get_current_user),
     db=Depends(get_db),
 ):
     """Returns KPI summary metrics for the dashboard."""
@@ -36,14 +37,14 @@ async def get_kpi_summary(
 
 @router.get("/trend", response_model=List[TrendPoint], summary="Incident trend over time")
 async def get_kpi_trend(
-    range: Literal["today", "7d", "30d"] = "7d",
-    current_user: dict = Depends(get_current_user),
+    range_val: Literal["today", "7d", "30d"] = Query("7d", alias="range"),
+    current_user: User = Depends(get_current_user),
 ):
     """Returns daily incident counts for trend chart rendering."""
-    if range == "today":
+    if range_val == "today":
         return [{"date": "00:00", "value": 2}, {"date": "06:00", "value": 4},
                 {"date": "12:00", "value": 3}, {"date": "18:00", "value": 5}]
-    if range == "30d":
+    if range_val == "30d":
         return [{"date": _day_label(i), "value": 5 + (i % 7)} for i in range(30, 0, -1)]
     # 7d default
     return [
@@ -59,7 +60,7 @@ async def get_kpi_trend(
 
 @router.get("/hotspots", response_model=List[Hotspot], summary="Top crime hotspots")
 async def get_kpi_hotspots(
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db=Depends(get_db),
 ):
     """Returns top crime hotspots with geo-coordinates and severity."""

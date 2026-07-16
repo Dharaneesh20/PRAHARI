@@ -3,9 +3,10 @@ import asyncio
 from typing import List, Optional
 from datetime import datetime, timezone
 
+from app.models.user import User
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, status
 
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, require_level_1
 from app.models.incidents import (
     Incident, UpdateStatusRequest, UpdateStatusResponse,
     AssignUnitRequest, AssignUnitResponse,
@@ -23,7 +24,7 @@ _sim_task: asyncio.Task | None = None
 async def list_incidents(
     severity: str = Query(default="all"),
     status: str = Query(default="all"),
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(require_level_1),
 ):
     """Retrieve all incidents, filterable by severity and status."""
     return mock_store.get_all_incidents(severity=severity, status=status)
@@ -33,7 +34,7 @@ async def list_incidents(
 async def update_incident_status(
     incident_id: str,
     body: UpdateStatusRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(require_level_1),
 ):
     """Update the operational status of an incident."""
     inc = mock_store.update_incident_status(incident_id, body.status)
@@ -50,7 +51,7 @@ async def update_incident_status(
 async def assign_unit(
     incident_id: str,
     body: AssignUnitRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(require_level_1),
 ):
     """Assign a patrol unit to a specific incident."""
     inc = mock_store.assign_unit_to_incident(incident_id, body.unitId)

@@ -25,7 +25,7 @@ export function getToken(): string | null {
 }
 
 // ── Core fetch wrapper ────────────────────────────────────────
-async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+export async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string> || {}),
