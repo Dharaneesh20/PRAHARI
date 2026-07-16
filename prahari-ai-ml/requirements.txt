@@ -6,4 +6,7 @@ faker
 networkx
 scikit-learn
 groq
-dotenv
+python-dotenv
+xgboost
+statsmodels
+hdbscan

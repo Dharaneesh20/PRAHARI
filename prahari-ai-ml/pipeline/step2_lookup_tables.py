@@ -19,7 +19,6 @@ Derivation source per table:
   - Court                                   <- NOT in CSV -> synthesized, a handful per district
   - CaseMaster                              <- CSV, FK-wired to all of the above + generated CrimeNo/CaseNo
 """
-
 import os
 import re
 import duckdb
@@ -27,16 +26,20 @@ import numpy as np
 import pandas as pd
 from faker import Faker
 
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 IN_PARQUET_PATH = os.path.join(BASE_DIR, "data", "processed", "fir_step1_geo.parquet")
 DB_PATH = os.path.join(BASE_DIR, "db", "karnataka_fir.duckdb")
 LONG_ACT_PARQUET = os.path.join(BASE_DIR, "data", "processed", "_long_act_sections.parquet")
 FIR_WITH_IDS_PARQUET = os.path.join(BASE_DIR, "data", "processed", "_fir_with_ids.parquet")
-
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 os.makedirs(os.path.dirname(LONG_ACT_PARQUET), exist_ok=True)
 
 RANDOM_SEED = 42
+
+#long_act_df.to_parquet(LONG_ACT_PARQUET, index=False)
+#df.to_parquet(FIR_WITH_IDS_PARQUET, index=False)
+
 
 fake = Faker("en_IN")
 Faker.seed(RANDOM_SEED)
@@ -371,17 +374,6 @@ def main():
     designation_df = build_designation()
     employee_df = build_employee(df, unit_df, district_df, rank_df, designation_df)
     court_df = build_court(district_df)
-
-    if os.path.exists(DB_PATH):
-        try:
-            test_con = duckdb.connect(DB_PATH)
-            test_con.close()
-        except Exception:
-            print(f"Existing DB file at {DB_PATH} is invalid or corrupted. Removing it...")
-            try:
-                os.remove(DB_PATH)
-            except Exception as e:
-                print(f"Error removing corrupted database file: {e}")
 
     con = duckdb.connect(DB_PATH)
     tables = {

@@ -11,7 +11,6 @@ tables from Step 2, and generates CrimeNo/CaseNo per the exact spec:
 
 Run after step2_lookup_tables.py (reuses its cached intermediate files).
 """
-
 import os
 import duckdb
 import numpy as np
@@ -20,6 +19,7 @@ import pandas as pd
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(BASE_DIR, "db", "karnataka_fir.duckdb")
 FIR_PARQUET = os.path.join(BASE_DIR, "data", "processed", "_fir_with_ids.parquet")
+
 RANDOM_SEED = 42
 rng = np.random.default_rng(RANDOM_SEED)
 

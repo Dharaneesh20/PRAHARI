@@ -26,8 +26,8 @@ Three independent deliverables:
      using haversine distance so `eps` is a real distance in meters
      rather than an abstract degree value.
 """
-
 import os
+
 import duckdb
 import numpy as np
 import pandas as pd
@@ -40,7 +40,6 @@ WIDE_AGG_OUT = os.path.join(BASE_DIR, "outputs", "dashboard_wide_aggregated.parq
 WIDE_AGG_CSV = os.path.join(BASE_DIR, "outputs", "dashboard_wide_aggregated.csv")
 GEO_REAL_ONLY_OUT = os.path.join(BASE_DIR, "outputs", "dashboard_geo_real_only.parquet")
 GEO_REAL_ONLY_CSV = os.path.join(BASE_DIR, "outputs", "dashboard_geo_real_only.csv")
-
 os.makedirs(os.path.dirname(WIDE_AGG_OUT), exist_ok=True)
 
 
@@ -294,7 +293,7 @@ def run_dbscan_hotspots(con, eps_meters: float = 200.0, min_samples: int = 25,
 
 
 # ======================================================================
-GEO_FLAG_PARQUET = os.path.join(BASE_DIR, "data", "processed", "_fir_with_ids.parquet")
+GEO_FLAG_PARQUET = "/home/claude/work/pipeline/_fir_with_ids.parquet"
 
 
 def ensure_geo_imputation_flag_table(con):
@@ -316,14 +315,12 @@ if __name__ == "__main__":
     print("\n--- NetworkX co-accused subgraph (example: Bengaluru City) ---")
     G = build_coaccused_subgraph(con, scope_type="district", scope_value="Bengaluru City")
     summarize_syndicates(G)
-    coaccused_path = os.path.join(BASE_DIR, "outputs", "coaccused_bengaluru_city.graphml")
-    nx.write_graphml(G, coaccused_path)
-    print(f"  Saved -> {coaccused_path}")
+    nx.write_graphml(G, "/home/claude/work/pipeline/coaccused_bengaluru_city.graphml")
+    print("  Saved -> coaccused_bengaluru_city.graphml")
 
     print("\n--- DBSCAN hotspots (example: Bengaluru City district, real coordinates only) ---")
     hotspot_df = run_dbscan_hotspots(con, eps_meters=200, min_samples=25,
                                       scope_district="Bengaluru City", real_coords_only=True)
-    hotspots_path = os.path.join(BASE_DIR, "outputs", "hotspots_bengaluru_city.parquet")
-    hotspot_df.to_parquet(hotspots_path, index=False)
+    hotspot_df.to_parquet("/home/claude/work/pipeline/hotspots_bengaluru_city.parquet", index=False)
 
     con.close()

@@ -12,21 +12,20 @@ session hackathon demo a 5-function pipeline is easier to debug live
 than a graph framework, and behaves identically. Swap in LangGraph
 later if you need branching/retries beyond what's here.
 
-Requires: pip install anthropic duckdb pandas
-Requires: ANTHROPIC_API_KEY environment variable (this sandbox has
-neither the key nor internet access to test live calls — this script
-is meant to be run on your own machine).
+Requires: pip install groq duckdb pandas
+Requires: GROQ_API_KEY environment variable (this sandbox has neither the
+key nor network access to api.groq.com — this script is meant to be run
+on your own machine).
 """
 
 import os
 import re
 import json
 import time
-import urllib.request
-import urllib.error
 import duckdb
 import pandas as pd
 from datetime import datetime, timezone
+from groq import Groq
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(BASE_DIR, "db", "karnataka_fir.duckdb")
@@ -34,67 +33,9 @@ GEO_REAL_ONLY_CSV = os.path.join(BASE_DIR, "outputs", "dashboard_geo_real_only.c
 WIDE_AGG_CSV = os.path.join(BASE_DIR, "outputs", "dashboard_wide_aggregated.csv")
 AUDIT_LOG_PATH = os.path.join(BASE_DIR, "outputs", "nl2sql_audit_log.jsonl")
 
-# Standard library .env loader
-def load_dotenv(filepath=".env"):
-    possible_paths = [
-        filepath,
-        os.path.join(BASE_DIR, filepath),
-        os.path.join(os.path.dirname(BASE_DIR), filepath),
-    ]
-    for path in possible_paths:
-        if os.path.exists(path):
-            with open(path, "r", encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith("#") and "=" in line:
-                        k, v = line.split("=", 1)
-                        os.environ[k.strip()] = v.strip()
-            print(f"Loaded environment variables from {path}")
-            return True
-    return False
-
-load_dotenv()
-
 MODEL = "llama-3.3-70b-versatile"
 
-def query_groq(system_prompt: str, user_prompt: str, max_tokens: int = 500) -> str:
-    url = "https://api.groq.com/openai/v1/chat/completions"
-    api_key = os.environ.get("GROQ_API_KEY")
-    if not api_key:
-        raise ValueError("GROQ_API_KEY environment variable is not set in environment or .env file.")
-    
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    }
-    
-    payload = {
-        "model": MODEL,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ],
-        "temperature": 0.0,
-        "max_tokens": max_tokens
-    }
-    
-    req = urllib.request.Request(
-        url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers=headers,
-        method="POST"
-    )
-    
-    try:
-        with urllib.request.urlopen(req) as response:
-            res_data = json.loads(response.read().decode("utf-8"))
-            return res_data["choices"][0]["message"]["content"].strip()
-    except urllib.error.HTTPError as e:
-        err_msg = e.read().decode("utf-8")
-        raise RuntimeError(f"Groq API HTTP Error {e.code}: {err_msg}") from e
-    except Exception as e:
-        raise RuntimeError(f"Failed to query Groq API: {str(e)}") from e
+client = Groq()  # reads GROQ_API_KEY from env
 
 
 # ======================================================================
@@ -112,6 +53,8 @@ WHITELISTED_TABLES = {
     "CasteMaster", "ReligionMaster", "OccupationMaster",
     "ComplainantDetails", "Victim", "Accused", "ArrestSurrender",
     "ChargesheetDetails", "fact_crime_agg", "fact_crime_geo",
+    "fact_crime_monthly", "trend_forecast", "trend_model_benchmark",
+    "hotspot_model_benchmark", "hotspot_clusters", "hotspot_summary",
 }
 
 FORBIDDEN_KEYWORDS = re.compile(
@@ -128,19 +71,18 @@ BUSINESS_GLOSSARY = """
 BUSINESS GLOSSARY (Karnataka Police FIR data):
 
 - CrimeHead / CrimeSubHead: two-level crime taxonomy. CrimeHead.CrimeGroupName
-  is the major category (e.g. "CRIMES AGAINST PROPERTY"), and CrimeSubHead.CrimeHeadName
-  contains specific, detailed offence compound names (e.g. "House Theft", "Servant Theft",
-  "House Breaking And Theft", "Temple Theft", "On Highways", "Chain Snatching").
-  * Crime Category Matching Rules:
-    1. Major categories (e.g., Robbery, Assault, Burglary, Cheating) are stored in CrimeHead.CrimeGroupName
-       in UPPERCASE. Note that the subheads (CrimeSubHead.CrimeHeadName) under these major categories do NOT contain
-       the words "robbery" or "assault" (they are named like "On Highways", "In Trains", "On Public Servant", "Chain Snatching").
-       For general questions about these crime types, filter on `LOWER(ch.CrimeGroupName) LIKE '%<term>%'` or the `ILIKE` operator
-       (e.g., `ch.CrimeGroupName = 'ROBBERY'` or `ch.CrimeGroupName ILIKE '%assault%'`).
-    2. Minor categories/specific offences (e.g., Theft, Burglary, Cheating) are stored in CrimeSubHead.CrimeHeadName in Title Case.
-       Because these are compound names, you should NEVER use an exact match (e.g., `LOWER(csh.CrimeHeadName) = 'theft'` will return 0 rows).
-       Always perform case-insensitive partial matching using `LOWER(csh.CrimeHeadName) LIKE '%theft%'` or the `ILIKE` operator
-       (e.g., `csh.CrimeHeadName ILIKE '%theft%'`).
+  is the major category (e.g. "Crimes Against Property"), CrimeSubHead.CrimeHeadName
+  is the SPECIFIC, often compound offence name — e.g. there is no plain "Theft" row;
+  instead there are separate rows like "House Theft", "Servant Theft", "Temple Theft".
+  CaseMaster links to BOTH via CrimeMajorHeadID -> CrimeHead and
+  CrimeMinorHeadID -> CrimeSubHead.
+
+- IMPORTANT — crime name matching: when a question names a general crime type
+  (theft, robbery, assault, cheating, etc.), NEVER use an exact match
+  (CrimeHeadName = 'theft'). ALWAYS use LOWER(CrimeHeadName) LIKE '%theft%'
+  (or the equivalent term), because the real category names are specific
+  compound phrases, not the general term the user typed. An exact match will
+  silently return 0 rows even when matching cases genuinely exist.
 
 - GravityOffence: only 2 real values in this data — "Heinous" and "Non Heinous" —
   sourced from the original FIR Type field. Not a severity score, a binary flag.
@@ -170,22 +112,43 @@ BUSINESS GLOSSARY (Karnataka Police FIR data):
   district comparisons by case count) -> use `fact_crime_agg`, which covers
   all cases regardless of coordinate provenance.
 
-- Table Aggregation Rule: In fact_crime_agg and fact_crime_geo, the rows represent
-  pre-aggregated groups. Never use COUNT(*) to find the number of cases. Always
-  use SUM(CaseCount) (for fact_crime_agg) or SUM(RealCoordCaseCount) (for fact_crime_geo)
-  to get the total case count.
-
-- District naming: Districts in Karnataka are stored with their full names. Specifically:
-  * "Bengaluru" is stored as "Bengaluru City" (urban) or "Bengaluru Dist" (rural).
-  * "Mysuru" is stored as "Mysuru City" (urban) or "Mysuru Dist" (rural).
-  When filtering by district, ensure you use the exact names (e.g., 'Bengaluru City' and 'Mysuru City'). Never use 'Bengaluru' or 'Mysuru' directly.
-
-- Chargesheet rate: Can be calculated on fact_crime_agg as SUM(TotalChargesheeted) * 1.0 / SUM(CaseCount) (or on fact_crime_geo as SUM(TotalChargesheeted) * 1.0 / SUM(RealCoordCaseCount)). This is much faster and simpler than joining CaseMaster with ChargesheetDetails.
-
 - Key joins: CaseMaster.PoliceStationID -> Unit.UnitID -> Unit.DistrictID ->
   District.DistrictID. CaseMaster.CrimeMajorHeadID -> CrimeHead.CrimeHeadID.
-  CaseMaster.CrimeMinorHeadID -> CrimeSubHead.CrimeSubHeadID.
   CaseMaster.PolicePersonID -> Employee.EmployeeID.
+
+- Column naming warning: most tables use `DistrictName` (District table,
+  CaseMaster_Wide, fact_crime_agg, fact_crime_geo). But `trend_forecast`,
+  `trend_model_benchmark`, `hotspot_model_benchmark`, and `hotspot_clusters`
+  use the shorter column name `District` instead. Always check the exact
+  schema below for the table you're querying rather than assuming.
+
+- Trend forecasting (for "is X rising/falling", "forecast next month",
+  "trend in Y"): use `trend_forecast` directly — it already has
+  NextMonthForecast, Last6MonthAvg, TrendDirection (rising/falling/stable),
+  BestModel (which of Naive/SARIMA/HoltWinters/XGBoost was used, selected
+  per-series by held-out MAE — a "smart" model only wins if it beats the
+  naive seasonal baseline), and LowConfidence_ReviewFlag (true if the
+  forecast swings >85% from recent average — likely a data anomaly, e.g. an
+  enforcement drive or reporting gap, not a real trend; ALWAYS mention this
+  flag if true rather than stating the forecast as fact). Only the top 15
+  highest-volume District x CrimeGroup series are covered — if a question
+  asks about a series not present, say so rather than guessing. Full
+  monthly history (not just next-month forecasts) is in `fact_crime_monthly`.
+
+- Hotspot clustering (for "where are the hotspots", "cluster locations in
+  X"): use `hotspot_summary` — this is the answer table, ALREADY aggregated
+  to one row per cluster with RealCoordCaseCount (how many real-coordinate
+  cases support that cluster) and LowConfidence_ReviewFlag (true if
+  RealCoordCaseCount < 30 — right at HDBSCAN's minimum cluster size, meaning
+  barely enough points to be called a cluster at all). ALWAYS mention
+  RealCoordCaseCount and the LowConfidence flag when answering a hotspot
+  question — never state a hotspot's location without its supporting case
+  count, since that's what tells a commander whether to act on it. Only use
+  the raw point-level `hotspot_clusters` table if a question needs
+  individual CaseMasterIDs, not for summary/ranking questions. Both tables
+  are restricted to real (non-imputed) coordinates already, and cover only
+  the top 5 highest-volume real-coordinate districts — if asked about a
+  district not covered, say so.
 """
 
 
@@ -218,43 +181,50 @@ def load_fact_tables(con):
 ROUTES = ["volume_trend", "hotspot_geo", "comparison", "network_repeat_offender", "lookup_detail", "other"]
 
 def route_question(question: str) -> str:
-    system_prompt = (
-        "Classify the crime-data question into exactly one label from this list, "
-        f"reply with ONLY the label: {ROUTES}\n"
-        "volume_trend = counts/trends over time or totals\n"
-        "hotspot_geo = location, hotspot, 'where', map, clustering\n"
-        "comparison = comparing districts/units/years/crime types\n"
-        "network_repeat_offender = repeat offenders, co-accused, criminal networks\n"
-        "lookup_detail = a specific case/person/unit lookup\n"
-        "other = anything else"
+    resp = client.chat.completions.create(
+        model=MODEL,
+        max_tokens=20,
+        temperature=0,
+        messages=[
+            {"role": "system", "content": (
+                "Classify the crime-data question into exactly one label from this list, "
+                f"reply with ONLY the label, nothing else: {ROUTES}\n"
+                "volume_trend = counts/trends over time or totals\n"
+                "hotspot_geo = location, hotspot, 'where', map, clustering\n"
+                "comparison = comparing districts/units/years/crime types\n"
+                "network_repeat_offender = repeat offenders, co-accused, criminal networks\n"
+                "lookup_detail = a specific case/person/unit lookup\n"
+                "other = anything else"
+            )},
+            {"role": "user", "content": question},
+        ],
     )
-    try:
-        label = query_groq(system_prompt, question, max_tokens=20)
-        label = label.strip().strip("'\"").lower()
-        # Find the route label inside the LLM response if it printed extra words
-        for r in ROUTES:
-            if r in label:
-                return r
-    except Exception as e:
-        print(f"Routing error: {e}")
-    return "other"
+    label = resp.choices[0].message.content.strip().lower()
+    return label if label in ROUTES else "other"
 
 
 # ======================================================================
 # 2. Generator — schema + glossary + route hint -> SQL only
 # ======================================================================
 ROUTE_HINTS = {
-    "hotspot_geo": "This is a location/hotspot question. You MUST use fact_crime_geo, "
-                   "never raw CaseMaster.Latitude/Longitude directly, and surface RealCoordCaseCount.",
+    "hotspot_geo": "This is a location/hotspot question. Use `hotspot_summary` by default (has "
+                   "RealCoordCaseCount and LowConfidence_ReviewFlag per cluster already computed — "
+                   "always surface both). Only drop to raw `hotspot_clusters` for individual-case "
+                   "lookups. Otherwise fall back to fact_crime_geo if the district isn't covered. "
+                   "Never use raw CaseMaster.Latitude/Longitude directly.",
     "network_repeat_offender": "This is a repeat-offender/network question. Use Accused.IsRepeatOffender "
-                                "and Accused.RepeatPoolID. Remember this data is synthetic.",
-    "volume_trend": "This is a count/trend question. Prefer fact_crime_agg unless case-level detail is needed.",
-    "comparison": "This is a comparison question. Prefer fact_crime_agg unless case-level detail is needed. Aggregate with GROUP BY on the compared dimension.",
+                                "and Accused.RepeatPoolID. Remember this data is synthetic. Use LIKE, not "
+                                "exact match, for any general crime-type name (see glossary).",
+    "volume_trend": "This is a count/trend question. If it asks about direction/forecast/'is X rising', "
+                     "use `trend_forecast` first (has TrendDirection, NextMonthForecast, "
+                     "LowConfidence_ReviewFlag already computed). For historical counts/totals only, "
+                     "use fact_crime_agg or fact_crime_monthly.",
+    "comparison": "This is a comparison question. Aggregate with GROUP BY on the compared dimension.",
 }
 
 def generate_sql(question: str, route: str, schema_context: str) -> str:
     hint = ROUTE_HINTS.get(route, "")
-    system_prompt = f"""You write DuckDB SQL for a Karnataka Police FIR analytics database.
+    system = f"""You write DuckDB SQL for a Karnataka Police FIR analytics database.
 Only these tables/columns exist — never invent columns:
 
 {schema_context}
@@ -268,7 +238,16 @@ Rules:
 - SELECT statements only, read-only.
 - Always add a reasonable LIMIT (e.g. 200) unless the question clearly wants an aggregate scalar.
 """
-    sql = query_groq(system_prompt, question, max_tokens=500)
+    resp = client.chat.completions.create(
+        model=MODEL,
+        max_tokens=500,
+        temperature=0,
+        messages=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": question},
+        ],
+    )
+    sql = resp.choices[0].message.content.strip()
     sql = re.sub(r"^```sql\s*|\s*```$", "", sql, flags=re.IGNORECASE | re.MULTILINE).strip()
     return sql
 
@@ -276,6 +255,12 @@ Rules:
 # ======================================================================
 # 3. Validator — read-only, whitelist-only, before anything touches the DB
 # ======================================================================
+FUNCTION_FROM_PATTERN = re.compile(
+    r"\b(EXTRACT|TRIM|SUBSTRING|OVERLAY|POSITION)\s*\([^)]*\bFROM\b[^)]*\)",
+    re.IGNORECASE,
+)
+
+
 def validate_sql(sql: str) -> tuple[bool, str]:
     stripped = sql.strip().rstrip(";")
     if not re.match(r"^\s*(SELECT|WITH)\b", stripped, re.IGNORECASE):
@@ -285,11 +270,14 @@ def validate_sql(sql: str) -> tuple[bool, str]:
     if ";" in stripped:
         return False, "Multiple statements are not allowed."
 
-    # Remove function-level FROM clauses (e.g. EXTRACT(field FROM source)) so they aren't parsed as tables
-    clean_sql = re.sub(r"\bEXTRACT\s*\(\s*[A-Za-z_]+\s+FROM\b", "", stripped, flags=re.IGNORECASE)
-    clean_sql = re.sub(r"\b(?:YEAR|MONTH|DAY)\s+FROM\b", "", clean_sql, flags=re.IGNORECASE)
-    
-    referenced = set(re.findall(r"\b(?:FROM|JOIN)\s+([A-Za-z_][A-Za-z0-9_]*)", clean_sql, re.IGNORECASE))
+    # SQL functions like EXTRACT(YEAR FROM col), TRIM(x FROM y), and
+    # SUBSTRING(x FROM y) use FROM as a keyword, not a table introducer.
+    # Strip those spans before scanning for table references, or the
+    # regex below misreads "cm" in "EXTRACT(YEAR FROM cm.Col)" as a
+    # non-whitelisted table and rejects a perfectly valid query.
+    table_scan_text = FUNCTION_FROM_PATTERN.sub(" ", stripped)
+
+    referenced = set(re.findall(r"\b(?:FROM|JOIN)\s+([A-Za-z_][A-Za-z0-9_]*)", table_scan_text, re.IGNORECASE))
     unknown = {t for t in referenced if t not in WHITELISTED_TABLES}
     if unknown:
         return False, f"Query references non-whitelisted table(s): {unknown}"
@@ -321,14 +309,22 @@ def explain_result(question: str, sql: str, df: pd.DataFrame, route: str) -> str
         "for demo purposes, not real criminal records."
         if route == "network_repeat_offender" else ""
     )
-    system_prompt = (
+    system = (
         "You explain SQL query results to a police analyst in plain English. "
         "Be concise (3-5 sentences), lead with the direct answer, cite specific numbers "
         "from the data below." + provenance_note
     )
-    user_prompt = f"Question: {question}\n\nSQL used:\n{sql}\n\nResult ({len(df)} rows, showing up to 20):\n{preview}"
-    answer = query_groq(system_prompt, user_prompt, max_tokens=400)
-    return answer
+    user = f"Question: {question}\n\nSQL used:\n{sql}\n\nResult ({len(df)} rows, showing up to 20):\n{preview}"
+    resp = client.chat.completions.create(
+        model=MODEL,
+        max_tokens=400,
+        temperature=0.3,
+        messages=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
+    )
+    return resp.choices[0].message.content.strip()
 
 
 # ======================================================================
@@ -379,6 +375,8 @@ if __name__ == "__main__":
         "Where are the crime hotspots in Bengaluru City?",
         "Show me repeat offenders linked to theft cases in Mysuru City.",
         "Compare chargesheet rates between Bengaluru City and Mysuru City for 2022.",
+        "Is theft rising or falling in Bengaluru City, and what's the forecast for next month?",
+        "Which model was used to detect hotspots in Belagavi district, and why?",
     ]
     for q in test_questions:
         print(f"\nQ: {q}")
@@ -389,6 +387,5 @@ if __name__ == "__main__":
             print(f"  Route: {result['route']}")
             print(f"  SQL: {result['sql']}")
             print(f"  Answer: {result['answer']}")
-        time.sleep(6.0)  # Sleep 6 seconds to avoid Groq rate limit on free keys
 
     con.close()
