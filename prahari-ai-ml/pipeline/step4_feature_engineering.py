@@ -293,7 +293,7 @@ def run_dbscan_hotspots(con, eps_meters: float = 200.0, min_samples: int = 25,
 
 
 # ======================================================================
-GEO_FLAG_PARQUET = "/home/claude/work/pipeline/_fir_with_ids.parquet"
+GEO_FLAG_PARQUET = os.path.join(BASE_DIR, "data", "processed", "_fir_with_ids.parquet")
 
 
 def ensure_geo_imputation_flag_table(con):
@@ -315,12 +315,15 @@ if __name__ == "__main__":
     print("\n--- NetworkX co-accused subgraph (example: Bengaluru City) ---")
     G = build_coaccused_subgraph(con, scope_type="district", scope_value="Bengaluru City")
     summarize_syndicates(G)
-    nx.write_graphml(G, "/home/claude/work/pipeline/coaccused_bengaluru_city.graphml")
-    print("  Saved -> coaccused_bengaluru_city.graphml")
+    coaccused_path = os.path.join(BASE_DIR, "outputs", "coaccused_bengaluru_city.graphml")
 
+    nx.write_graphml(G, coaccused_path)
+    print(f"  Saved -> {coaccused_path}")
     print("\n--- DBSCAN hotspots (example: Bengaluru City district, real coordinates only) ---")
+
     hotspot_df = run_dbscan_hotspots(con, eps_meters=200, min_samples=25,
                                       scope_district="Bengaluru City", real_coords_only=True)
-    hotspot_df.to_parquet("/home/claude/work/pipeline/hotspots_bengaluru_city.parquet", index=False)
+    hotspots_path = os.path.join(BASE_DIR, "outputs", "hotspots_bengaluru_city.parquet")
+    hotspot_df.to_parquet(hotspots_path, index=False)
 
     con.close()

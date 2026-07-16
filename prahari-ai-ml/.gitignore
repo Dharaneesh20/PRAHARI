@@ -23,6 +23,10 @@ db/
 
 # Generated analytical outputs (parquets, CSVs, coaccused graphs, and logs)
 outputs/
+*.parquet
+*.csv
+*.graphml
+*.jsonl
 
 # IDE settings and system files
 .vscode/

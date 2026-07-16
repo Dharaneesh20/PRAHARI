@@ -23,17 +23,24 @@ import re
 import json
 import time
 import duckdb
+import dotenv
 import pandas as pd
 from datetime import datetime, timezone
+
+from dotenv import load_dotenv
+load_dotenv()
+
 from groq import Groq
+client = Groq()
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(BASE_DIR, "db", "karnataka_fir.duckdb")
-GEO_REAL_ONLY_CSV = os.path.join(BASE_DIR, "outputs", "dashboard_geo_real_only.csv")
 WIDE_AGG_CSV = os.path.join(BASE_DIR, "outputs", "dashboard_wide_aggregated.csv")
+GEO_REAL_ONLY_CSV = os.path.join(BASE_DIR, "outputs", "dashboard_geo_real_only.csv")
 AUDIT_LOG_PATH = os.path.join(BASE_DIR, "outputs", "nl2sql_audit_log.jsonl")
 
 MODEL = "llama-3.3-70b-versatile"
+
 
 client = Groq()  # reads GROQ_API_KEY from env
 
@@ -111,6 +118,38 @@ BUSINESS GLOSSARY (Karnataka Police FIR data):
   For questions about VOLUME/COUNTS only (how many cases, trends over time,
   district comparisons by case count) -> use `fact_crime_agg`, which covers
   all cases regardless of coordinate provenance.
+
+- District names are EXACT, not colloquial — many carry a required suffix
+  that a casual question won't mention. Never guess or strip the suffix.
+  The full, exact list of all 41 valid DistrictName values is:
+  'Bagalkot', 'Ballari', 'Belagavi City', 'Belagavi Dist', 'Bengaluru City',
+  'Bengaluru Dist', 'Bidar', 'CID', 'Chamarajanagar', 'Chickballapura',
+  'Chikkamagaluru', 'Chitradurga', 'Coastal Security Police',
+  'Dakshina Kannada', 'Davanagere', 'Dharwad', 'Gadag', 'Hassan', 'Haveri',
+  'Hubballi Dharwad City', 'ISD Bengaluru', 'K.G.F', 'Kalaburagi',
+  'Kalaburagi City', 'Karnataka Railways', 'Kodagu', 'Kolar', 'Koppal',
+  'Mandya', 'Mangaluru City', 'Mysuru City', 'Mysuru Dist', 'Raichur',
+  'Ramanagara', 'Shivamogga', 'Tumakuru', 'Udupi', 'Uttara Kannada',
+  'Vijayanagara', 'Vijayapur', 'Yadgir'.
+  If a question says "Bengaluru" with no qualifier, match it to
+  'Bengaluru City' (the metro commissionerate) unless context suggests
+  otherwise. If a question says "Belagavi" or "Mysuru" alone, prefer the
+  'City' variant unless "rural"/"district" is explicitly mentioned. When
+  genuinely ambiguous, use `LOWER(DistrictName) LIKE '%<term>%'` instead
+  of an exact match, rather than guessing a single literal and silently
+  returning 0 rows.
+
+- IMPORTANT — Unit vs District confusion: Unit.UnitName is a POLICE STATION
+  name (e.g. 'Amengad PS', 'Bagalkot Rural PS'), NEVER a district name.
+  NEVER filter WHERE UnitName = 'Bengaluru City' or similar — that column
+  never holds district-level values. To filter by district, always join
+  through District.DistrictName (Unit.DistrictID -> District.DistrictID),
+  never assume the district name appears directly on Unit or CaseMaster.
+
+- ChargesheetDetails.cstype is a single-letter CODE, not a word:
+  'A' = Chargesheet, 'B' = False Case, 'C' = Undetected. Never filter
+  WHERE cstype = 'Chargesheet' — that will always return 0 rows. Use
+  cstype = 'A' for chargesheeted cases.
 
 - Key joins: CaseMaster.PoliceStationID -> Unit.UnitID -> Unit.DistrictID ->
   District.DistrictID. CaseMaster.CrimeMajorHeadID -> CrimeHead.CrimeHeadID.
