@@ -1,13 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Info } from "lucide-react";
+import { BarChart2, Map, Users, Clock, TrendingUp, Shield, Info } from "lucide-react";
 import GlassCard, { glassPanelStyle } from "../components/GlassCard";
 import { SvgAreaChart, SvgBarChart } from "../components/SvgChart";
 import DateRangePicker, { type DateRange } from "../components/DateRangePicker";
-import {
-  CRIME_BY_CATEGORY, TIME_HEATMAP, YOY_DATA, RISK_ZONES,
-  STATION_COMPARISON, DEMOGRAPHICS_AGE, DEMOGRAPHICS_TIME,
-} from "../mocks/analytics";
+import { analytics as analyticsApi } from "../lib/api";
+import type { CrimeCategory, RiskZone, StationStats, AgeGroup, TimeSlot } from "../lib/types";
 
 type Tab = "patterns" | "risk" | "stations" | "demographics";
 const TABS: { value: Tab; label: string }[] = [
@@ -21,10 +19,10 @@ const RISK_COLOR = (score: number) =>
   score >= 80 ? "#D14343" : score >= 65 ? "#F97316" : score >= 50 ? "#C9A227" : "#2E9E6C";
 
 // ─── Heatmap Grid ────────────────────────────────────────────
-function TimeHeatmap() {
+function TimeHeatmap({ data }: { data: { day: string; hour: number; value: number }[] }) {
   const HOURS = Array.from({ length: 24 }, (_, i) => i);
   const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  const max = Math.max(...TIME_HEATMAP.map(c => c.value));
+  const max = Math.max(...data.map(c => c.value), 1);
 
   return (
     <div className="w-full overflow-x-auto">
@@ -43,7 +41,7 @@ function TimeHeatmap() {
               {day}
             </div>
             {HOURS.map(h => {
-              const cell = TIME_HEATMAP.find(c => c.day === day && c.hour === h);
+              const cell = data.find(c => c.day === day && c.hour === h);
               const v = cell?.value ?? 0;
               const intensity = v / max;
               return (
@@ -107,6 +105,31 @@ export default function Analytics() {
   const [explainZone, setExplainZone] = useState<string | null>(null);
   const [sortCol, setSortCol] = useState<"clearanceRate" | "avgResponse" | "caseVolume">("clearanceRate");
 
+  const [categories, setCategories] = useState<CrimeCategory[]>([]);
+  const [riskZones, setRiskZones] = useState<RiskZone[]>([]);
+  const [stations, setStations] = useState<StationStats[]>([]);
+  const [ageGroups, setAgeGroups] = useState<AgeGroup[]>([]);
+  const [timeDistribution, setTimeDistribution] = useState<TimeSlot[]>([]);
+  const [heatmapData] = useState<{ day: string; hour: number; value: number }[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      analyticsApi.patterns(),
+      analyticsApi.risk(),
+      analyticsApi.stations(),
+      analyticsApi.demographics(),
+    ]).then(([pat, risk, stat, demo]) => {
+      setCategories(pat.categories);
+      setRiskZones(risk);
+      setStations(stat);
+      setAgeGroups(demo.ageGroups);
+      setTimeDistribution(demo.timeDistribution);
+    }).catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div className="flex items-center justify-center h-full" style={{ color: "rgba(255,255,255,0.4)" }}><p>Loading analytics...</p></div>;
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
@@ -159,7 +182,7 @@ export default function Analytics() {
               {/* Crime by category */}
               <GlassCard title="Crime by Category" subtitle="Incidents this period">
                 <div className="flex flex-col gap-3">
-                  {CRIME_BY_CATEGORY.map((c, i) => (
+                  {categories.map((c, i) => (
                     <motion.div key={c.type} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}
                       className="flex items-center gap-3">
                       <span className="text-xs font-semibold w-24 shrink-0" style={{ color: "rgba(255,255,255,0.6)" }}>{c.type}</span>
@@ -182,36 +205,8 @@ export default function Analytics() {
 
               {/* Time Heatmap */}
               <GlassCard title="Incident Time Heatmap" subtitle="Day × Hour intensity">
-                <TimeHeatmap />
+                <TimeHeatmap data={heatmapData} />
               </GlassCard>
-
-              {/* YOY chart */}
-              {yoy && (
-                <GlassCard title="Year-over-Year Comparison" subtitle="2026 vs 2025">
-                  <div className="flex gap-4 mb-3 text-xs">
-                    <div className="flex items-center gap-1.5"><span className="w-5 h-0.5 inline-block rounded-full" style={{ background: "#C9A227" }} /><span style={{ color: "rgba(255,255,255,0.6)" }}>2026</span></div>
-                    <div className="flex items-center gap-1.5"><span className="w-5 h-0.5 inline-block rounded-full" style={{ background: "#3F5C86" }} /><span style={{ color: "rgba(255,255,255,0.6)" }}>2025</span></div>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    {YOY_DATA.map((d, i) => (
-                      <div key={d.month} className="flex items-center gap-3">
-                        <span className="text-xs w-10 shrink-0" style={{ color: "rgba(255,255,255,0.4)" }}>{d.month}</span>
-                        <div className="flex-1 flex flex-col gap-1">
-                          <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.05)" }}>
-                            <motion.div className="h-full rounded-full" initial={{ width: 0 }} animate={{ width: `${(d.current / 130) * 100}%` }} transition={{ delay: i * 0.05, duration: 0.7 }} style={{ background: "#C9A227" }} />
-                          </div>
-                          <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.05)" }}>
-                            <motion.div className="h-full rounded-full" initial={{ width: 0 }} animate={{ width: `${(d.previous / 130) * 100}%` }} transition={{ delay: i * 0.05 + 0.1, duration: 0.7 }} style={{ background: "#3F5C86" }} />
-                          </div>
-                        </div>
-                        <span className="text-xs font-semibold w-14 text-right" style={{ color: d.current < d.previous ? "#2E9E6C" : "#D14343" }}>
-                          {d.current < d.previous ? "▼" : "▲"} {Math.abs(d.current - d.previous)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </GlassCard>
-              )}
             </motion.div>
           )}
 
@@ -220,7 +215,7 @@ export default function Analytics() {
             <motion.div key="risk" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex flex-col gap-5">
               <GlassCard title="Risk Score by Zone" subtitle="AI-generated risk assessment with explainability">
                 <div className="flex flex-col gap-4">
-                  {RISK_ZONES.map((z, i) => (
+                  {riskZones.map((z, i) => (
                     <motion.div key={z.zone} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
                       className="flex flex-col gap-2">
                       <div className="flex items-center justify-between">
@@ -283,7 +278,7 @@ export default function Analytics() {
                       </tr>
                     </thead>
                     <tbody>
-                      {[...STATION_COMPARISON].sort((a, b) => {
+                      {[...stations].sort((a, b) => {
                         if (sortCol === "clearanceRate") return b.clearanceRate - a.clearanceRate;
                         if (sortCol === "avgResponse") return a.avgResponse - b.avgResponse;
                         return b.caseVolume - a.caseVolume;
@@ -328,7 +323,7 @@ export default function Analytics() {
 
               <GlassCard title="Age Group Distribution" subtitle="Offenders vs victims — aggregate, anonymized">
                 <div className="flex flex-col gap-3">
-                  {DEMOGRAPHICS_AGE.map((d, i) => (
+                  {ageGroups.map((d, i) => (
                     <div key={d.group} className="flex items-center gap-4">
                       <span className="text-xs w-12 shrink-0" style={{ color: "rgba(255,255,255,0.4)" }}>{d.group}</span>
                       <div className="flex-1 flex flex-col gap-1">
@@ -354,7 +349,7 @@ export default function Analytics() {
 
               <GlassCard title="Incidents by Time of Day" subtitle="Aggregate incident distribution across 24h">
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {DEMOGRAPHICS_TIME.map((d, i) => (
+                  {timeDistribution.map((d, i) => (
                     <motion.div key={d.slot} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}
                       className="rounded-xl p-3 text-center" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
                       <p className="text-2xl font-bold mb-1" style={{ color: i >= 2 ? "#D14343" : "#C9A227" }}>{d.incidents}</p>

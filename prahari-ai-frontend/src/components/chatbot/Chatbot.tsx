@@ -1,30 +1,38 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageSquare, X, Send, Bot, Sparkles } from "lucide-react";
-import { useDashboard } from "../../context/DashboardContext";
+import { MessageSquare, X, Send, Bot, Sparkles, Loader2 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import { apiFetch } from "../../lib/api";
 
 function Chatbot() {
-  const { executeAICommand } = useDashboard(); 
   const [isOpen, setIsOpen] = useState(false);
   const [message, setMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const [chat, setChat] = useState([
-    { sender: "bot", text: "Prahari AI operational. Awaiting system commands." }
+    { sender: "bot", text: "Prahari AI operational. How can I assist you with crime data analytics today?" }
   ]);
 
-  const handleSend = (e: React.FormEvent) => {
+  const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!message.trim()) return;
+    if (!message.trim() || isLoading) return;
     
     // 1. Show user message
     setChat((prev) => [...prev, { sender: "user", text: message }]);
     const currentMessage = message;
     setMessage("");
+    setIsLoading(true);
 
-    // 2. AI processes command and alters dashboard globally
-    setTimeout(() => {
-      const aiResponse = executeAICommand(currentMessage);
-      setChat((prev) => [...prev, { sender: "bot", text: aiResponse }]);
-    }, 600);
+    try {
+      const response = await apiFetch<any>("/api/v1/search/nl2sql", {
+        method: "POST",
+        body: JSON.stringify({ question: currentMessage }),
+      });
+      setChat((prev) => [...prev, { sender: "bot", text: response.answer || "I'm sorry, I couldn't process that query." }]);
+    } catch (error: any) {
+      setChat((prev) => [...prev, { sender: "bot", text: `Error: ${error.message || "Failed to fetch AI response."}` }]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -77,10 +85,23 @@ function Chatbot() {
                       ? "bg-blue-600 text-white rounded-br-sm" 
                       : "bg-white/80 dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.05] text-slate-700 dark:text-slate-200 rounded-bl-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]"
                   }`}>
-                    {msg.text}
+                    {msg.sender === "bot" ? (
+                      <div className="prose prose-sm dark:prose-invert max-w-none">
+                        <ReactMarkdown>{msg.text}</ReactMarkdown>
+                      </div>
+                    ) : (
+                      msg.text
+                    )}
                   </div>
                 </motion.div>
               ))}
+              {isLoading && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
+                  <div className="bg-white/80 dark:bg-white/[0.05] p-3 rounded-2xl border border-slate-200 dark:border-white/[0.05]">
+                    <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+                  </div>
+                </motion.div>
+              )}
             </div>
 
             {/* Input Area */}

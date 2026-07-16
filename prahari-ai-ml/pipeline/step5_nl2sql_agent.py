@@ -240,7 +240,7 @@ def load_fact_tables(con):
 # ======================================================================
 # 1. Router — classifies intent so the generator gets a scoped hint
 # ======================================================================
-ROUTES = ["volume_trend", "hotspot_geo", "comparison", "network_repeat_offender", "lookup_detail", "other"]
+ROUTES = ["volume_trend", "hotspot_geo", "comparison", "network_repeat_offender", "lookup_detail", "conversational", "other"]
 
 def route_question(question: str) -> str:
     resp = client.chat.completions.create(
@@ -256,6 +256,7 @@ def route_question(question: str) -> str:
                 "comparison = comparing districts/units/years/crime types\n"
                 "network_repeat_offender = repeat offenders, co-accused, criminal networks\n"
                 "lookup_detail = a specific case/person/unit lookup\n"
+                "conversational = general greeting, hi, hello, who are you, chitchat, thank you\n"
                 "other = anything else"
             )},
             {"role": "user", "content": question},
@@ -284,8 +285,11 @@ ROUTE_HINTS = {
     "comparison": "This is a comparison question. Aggregate with GROUP BY on the compared dimension.",
 }
 
-def generate_sql(question: str, route: str, schema_context: str) -> str:
+def generate_sql(question: str, route: str, schema_context: str, clearance_level: int) -> str:
     hint = ROUTE_HINTS.get(route, "")
+    rbac_rule = ""
+    if clearance_level < 3:
+        rbac_rule = "\n- RBAC RESTRICTION: User clearance < 3. DO NOT return raw PII (names, phones) of Victims, Complainants, or Accused. Redact or exclude them."
     system = f"""You write DuckDB SQL for a Karnataka Police FIR analytics database.
 Only these tables/columns exist — never invent columns:
 
@@ -295,7 +299,7 @@ Only these tables/columns exist — never invent columns:
 
 {hint}
 
-Rules:
+Rules:{rbac_rule}
 - Output ONLY the SQL query. No markdown fences, no explanation, no comments.
 - SELECT statements only, read-only.
 - Always add a reasonable LIMIT (e.g. 200) unless the question clearly wants an aggregate scalar.
@@ -374,7 +378,8 @@ def explain_result(question: str, sql: str, df: pd.DataFrame, route: str) -> str
     system = (
         "You explain SQL query results to a police analyst in plain English. "
         "Be concise (3-5 sentences), lead with the direct answer, cite specific numbers "
-        "from the data below." + provenance_note
+        "from the data below. If there are multiple rows or structured comparative data, "
+        "ALWAYS format it cleanly using Markdown tables or bulleted lists to make it easy to read." + provenance_note
     )
     user = f"Question: {question}\n\nSQL used:\n{sql}\n\nResult ({len(df)} rows, showing up to 20):\n{preview}"
     resp = client.chat.completions.create(
@@ -442,10 +447,16 @@ Output ONLY the corrected SQL query. No markdown fences, no explanation.
     return re.sub(r"^```sql\s*|\s*```$", "", sql, flags=re.IGNORECASE | re.MULTILINE).strip()
 
 
-def answer_question(con, question: str, schema_context: str, max_repair_attempts: int = 1) -> dict:
+def answer_question(con, question: str, schema_context: str, clearance_level: int = 1, max_repair_attempts: int = 1) -> dict:
     t0 = time.time()
     route = route_question(question)
-    sql = generate_sql(question, route, schema_context)
+    
+    if route == "conversational":
+        answer = "Hello! I am PRAHARI AI. I am here to assist you with analyzing crime data, tracking hotspots, identifying repeat offenders, and running predictive models. How can I help you today?"
+        return {"question": question, "route": route, "sql": "", "error": None,
+                "answer": answer, "result_df": None, "repaired": False}
+                
+    sql = generate_sql(question, route, schema_context, clearance_level)
 
     attempts = 0
     while True:

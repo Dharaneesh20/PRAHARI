@@ -1,4 +1,4 @@
-import type { Severity, IncidentStatus, UnitStatus } from "../mocks/types";
+import type { Severity, IncidentStatus, UnitStatus } from "../lib/types";
 
 // ── Severity Badge ───────────────────────────────────────────
 const SEVERITY_MAP: Record<Severity, { label: string; bg: string; color: string; dot: string }> = {
@@ -18,6 +18,8 @@ const INCIDENT_STATUS_MAP: Record<IncidentStatus, { label: string; bg: string; c
 
 // ── Unit Status Badge ────────────────────────────────────────
 const UNIT_STATUS_MAP: Record<UnitStatus, { label: string; color: string; glow: string }> = {
+  "available":  { label: "AVAILABLE",  color: "#2E9E6C", glow: "rgba(46,158,108,0.5)" },
+  "dispatched": { label: "DISPATCHED", color: "#C9A227", glow: "rgba(201,162,39,0.4)" },
   "on-patrol":  { label: "ON PATROL",  color: "#2E9E6C", glow: "rgba(46,158,108,0.5)" },
   "responding": { label: "RESPONDING", color: "#D14343", glow: "rgba(209,67,67,0.5)" },
   "on-break":   { label: "ON BREAK",   color: "#C9A227", glow: "rgba(201,162,39,0.4)" },

@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, Settings as SettingsIcon, Bell, Shield, Lock, Globe, Check, ChevronRight, LogOut, Copy } from "lucide-react";
+import { User, Settings as SettingsIcon, Bell, Shield, Lock, Globe, Check, LogOut, Copy } from "lucide-react";
 import { useTheme } from "../components/theme-provider";
-import { USER_PROFILE, NOTIFICATION_PREFS, ACTIVE_SESSIONS, AUDIT_LOG, APP_PREFERENCES } from "../mocks/settings";
 import GlassCard, { glassPanelStyle } from "../components/GlassCard";
+import { auth as authApi, settings as settingsApi } from "../lib/api";
+import type { UserProfile, AuditEntry } from "../lib/types";
 
 type Section = "profile" | "preferences" | "notifications" | "security" | "audit" | "language";
 const SECTIONS: { id: Section; label: string; icon: typeof User }[] = [
@@ -51,21 +52,51 @@ function FormField({ label, value, type = "text", disabled = false }: { label: s
 
 export default function Settings() {
   const [section, setSection] = useState<Section>("profile");
-  const [prefs, setPrefs] = useState(APP_PREFERENCES);
-  const [notifPrefs, setNotifPrefs] = useState(NOTIFICATION_PREFS);
+  const [prefs, setPrefs] = useState({
+    density: "comfortable" as "comfortable" | "compact",
+    reduceMotion: false,
+    soundAlerts: true,
+    language: "en" as "en" | "kn",
+    syncFilters: false,
+  });
+  const [notifPrefs, setNotifPrefs] = useState({
+    newIncident: true, assignedCase: true, reportReady: true, systemAlerts: true,
+    channels: { inApp: true, email: true, sms: false },
+  });
   const [saved, setSaved] = useState(false);
   const [auditSearch, setAuditSearch] = useState("");
   const { theme, setTheme } = useTheme();
+  
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  useEffect(() => {
+    Promise.all([
+      authApi.session(),
+      settingsApi.auditLog(),
+    ]).then(([profile, audit]) => {
+      setUserProfile(profile);
+      setAuditLog(audit);
+    }).catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleSave = async () => {
+    if (!userProfile) return;
+    try {
+      await settingsApi.updateProfile(userProfile.email, userProfile.phone);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) { console.error("Profile save failed", err); }
   };
 
-  const filteredAudit = AUDIT_LOG.filter(e =>
+  const filteredAudit = auditLog.filter(e =>
     e.action.toLowerCase().includes(auditSearch.toLowerCase()) ||
     e.resource.toLowerCase().includes(auditSearch.toLowerCase())
   );
+
+  if (loading && !userProfile) return <div className="flex items-center justify-center h-full" style={{ color: "rgba(255,255,255,0.4)" }}><p>Loading settings...</p></div>;
 
   return (
     <div className="flex flex-col md:flex-row h-full overflow-hidden">
@@ -103,23 +134,41 @@ export default function Settings() {
                 <div className="flex items-center gap-4">
                   <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-bold text-white shrink-0"
                     style={{ background: "linear-gradient(135deg, #1B2A4A 0%, #3F5C86 100%)", boxShadow: "0 0 0 2px rgba(201,162,39,0.5)" }}>
-                    {USER_PROFILE.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                    {userProfile?.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                   </div>
                   <div>
-                    <p className="font-bold" style={{ color: "rgba(255,255,255,0.9)" }}>{USER_PROFILE.name}</p>
-                    <p className="text-sm" style={{ color: "rgba(255,255,255,0.45)" }}>{USER_PROFILE.rank} · {USER_PROFILE.station}</p>
+                    <p className="font-bold" style={{ color: "rgba(255,255,255,0.9)" }}>{userProfile?.name}</p>
+                    <p className="text-sm" style={{ color: "rgba(255,255,255,0.45)" }}>{userProfile?.rank} · {userProfile?.station}</p>
                     <button className="mt-1.5 text-xs font-semibold" style={{ color: "#C9A227" }}>Change Photo</button>
                   </div>
                 </div>
               </GlassCard>
               <GlassCard title="Personal Information">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <FormField label="Full Name" value={USER_PROFILE.name} />
-                  <FormField label="Badge ID" value={USER_PROFILE.badgeId} disabled />
-                  <FormField label="Rank" value={USER_PROFILE.rank} disabled />
-                  <FormField label="Station" value={USER_PROFILE.station} disabled />
-                  <FormField label="Email" value={USER_PROFILE.email} type="email" />
-                  <FormField label="Phone" value={USER_PROFILE.phone} type="tel" />
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.4)" }}>Full Name</label>
+                    <input type="text" value={userProfile?.name} disabled className="px-3 py-2.5 rounded-xl text-sm outline-none text-white transition-all bg-white/5 border border-white/10" />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.4)" }}>Badge ID</label>
+                    <input type="text" value={userProfile?.badgeId} disabled className="px-3 py-2.5 rounded-xl text-sm outline-none text-white transition-all bg-white/5 border border-white/10" />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.4)" }}>Rank</label>
+                    <input type="text" value={userProfile?.rank} disabled className="px-3 py-2.5 rounded-xl text-sm outline-none text-white transition-all bg-white/5 border border-white/10" />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.4)" }}>Station</label>
+                    <input type="text" value={userProfile?.station} disabled className="px-3 py-2.5 rounded-xl text-sm outline-none text-white transition-all bg-white/5 border border-white/10" />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.4)" }}>Email</label>
+                    <input type="email" value={userProfile?.email} onChange={e => setUserProfile(p => p ? { ...p, email: e.target.value } : null)} className="px-3 py-2.5 rounded-xl text-sm outline-none text-white transition-all bg-white/5 border border-white/10" />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.4)" }}>Phone</label>
+                    <input type="tel" value={userProfile?.phone} onChange={e => setUserProfile(p => p ? { ...p, phone: e.target.value } : null)} className="px-3 py-2.5 rounded-xl text-sm outline-none text-white transition-all bg-white/5 border border-white/10" />
+                  </div>
                 </div>
               </GlassCard>
               <button onClick={handleSave} className="w-full max-w-xs py-3 rounded-xl font-bold text-sm text-black flex items-center justify-center gap-2"
@@ -187,9 +236,10 @@ export default function Settings() {
                   </button>
                 </div>
               </GlassCard>
-              <GlassCard title="Active Sessions">
+              {/* Active Sessions */}
+              <GlassCard title="Active Sessions" subtitle="Manage your active logins">
                 <div className="flex flex-col gap-3">
-                  {ACTIVE_SESSIONS.map(s => (
+                  {[].map((s: any) => (
                     <div key={s.id} className="flex items-center gap-3 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.8)" }}>{s.device}</p>

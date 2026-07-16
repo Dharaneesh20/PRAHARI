@@ -1,8 +1,9 @@
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, WifiOff, ShieldCheck, ArrowRight, Shield, User, Building2, Users } from "lucide-react";
+import { Loader2, WifiOff, ShieldCheck, Shield, User, Building2, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import LiquidCanvas from "../components/LiquidCanvas";
+import { auth as authApi, setToken } from "../lib/api";
 
 type LoginState = "idle" | "loading" | "error" | "success";
 type Role = "Investigator" | "Station Admin" | "Citizen Portal";
@@ -20,20 +21,32 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<Role>("Investigator");
   const [ripples, setRipples] = useState<{ id: number; x: number; y: number }[]>([]);
+  const [showDemo, setShowDemo] = useState(false);
+  const [shake, setShake] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!badgeId || !password) return;
 
     setStatus("loading");
-    setTimeout(() => {
-      if (!window.navigator.onLine) {
-        setStatus("error");
-      } else {
-        setStatus("success");
-        setTimeout(() => navigate("/"), 1500);
-      }
-    }, 2800);
+    try {
+      const res = await authApi.login(badgeId, password);
+      setToken(res.token);
+      setStatus("success");
+      setTimeout(() => navigate("/dashboard"), 1500);
+    } catch (err) {
+      setStatus("error");
+      setShake(true);
+      setTimeout(() => {
+        setShake(false);
+        setStatus("idle");
+      }, 2000);
+    }
+  };
+
+  const handleDemoFill = (badge: string, pass: string) => {
+    setBadgeId(badge);
+    setPassword(pass);
   };
 
   const handleButtonClick = (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -58,10 +71,11 @@ export default function Login() {
           <motion.div
             key="login"
             initial={{ opacity: 0, y: 24, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
+            animate={shake ? { x: [-10, 10, -10, 10, 0], opacity: 1, y: 0, scale: 1 } : { opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -24, scale: 0.96, filter: "blur(8px)" }}
-            transition={{ type: "spring", stiffness: 260, damping: 22 }}
-            className="glass-specular relative z-10 w-full max-w-md mx-4 p-8 rounded-3xl flex flex-col gap-6"
+            transition={{ type: "spring", stiffness: 260, damping: 22, duration: shake ? 0.4 : undefined }}
+            className={`glass-specular relative z-10 w-full max-w-md mx-4 p-8 rounded-3xl flex flex-col gap-6 ${shake ? 'border-red-500/50' : ''}`}
+
             style={{
               backdropFilter: "blur(32px) saturate(180%)",
               WebkitBackdropFilter: "blur(32px) saturate(180%)",
@@ -195,39 +209,84 @@ export default function Login() {
                 />
               </div>
 
-              {/* Auth button with ripple */}
-              <motion.button
-                type="submit"
-                disabled={!badgeId || !password}
-                whileHover={{ scale: 1.02, brightness: 1.1 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleButtonClick}
-                className="mt-2 w-full py-3.5 rounded-2xl font-bold text-sm text-black flex items-center justify-center gap-2 relative overflow-hidden disabled:opacity-30"
-                style={{
-                  background: "linear-gradient(135deg, #C9A227 0%, #e8b92e 60%, #b8901f 100%)",
-                  boxShadow: "0 4px 24px rgba(201,162,39,0.45)",
-                }}
-              >
-                {/* Ripple effects */}
-                {ripples.map(({ id, x, y }) => (
-                  <span
-                    key={id}
-                    className="absolute rounded-full pointer-events-none"
-                    style={{
-                      left: x,
-                      top: y,
-                      width: 8,
-                      height: 8,
-                      marginLeft: -4,
-                      marginTop: -4,
-                      background: "rgba(255,255,255,0.5)",
-                      animation: "rippleOut 0.65s ease-out forwards",
-                    }}
-                  />
-                ))}
-                Authenticate <ArrowRight className="w-4 h-4" />
-              </motion.button>
+
+                <AnimatePresence>
+                  {shake && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="text-red-400 text-xs text-center font-bold"
+                    >
+                      Access Denied: Invalid Credentials
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+                
+                {/* Submit button */}
+                <button
+                  type="submit"
+                  disabled={!badgeId || !password}
+                  onClick={handleButtonClick}
+                  className="relative overflow-hidden w-full py-4 mt-2 rounded-xl text-black font-bold uppercase tracking-widest text-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
+                  style={{
+                    background: "linear-gradient(90deg, #C9A227, #e0c159)",
+                    boxShadow: "0 4px 20px rgba(201,162,39,0.4)",
+                  }}
+                >
+                  <span className="relative z-10 flex items-center justify-center gap-2">
+                    Initiate Secure Uplink
+                  </span>
+                  
+                  {/* Button Ripple Effect */}
+                  {ripples.map((r) => (
+                    <span
+                      key={r.id}
+                      className="absolute bg-white/40 rounded-full"
+                      style={{
+                        left: r.x,
+                        top: r.y,
+                        width: 4,
+                        height: 4,
+                        transform: "translate(-50%, -50%)",
+                        animation: "ripple 0.7s ease-out forwards",
+                      }}
+                    />
+                  ))}
+
+                </button>
             </form>
+
+            {/* Demo Hackathon Feature */}
+            <div className="flex flex-col gap-2 mt-2">
+              <button 
+                onClick={() => setShowDemo(!showDemo)}
+                className="text-[10px] uppercase font-bold text-gray-400 hover:text-white text-center tracking-widest transition"
+              >
+                {showDemo ? "Hide Demo Accounts" : "Show Demo Accounts (Hackathon)"}
+              </button>
+              
+              <AnimatePresence>
+                {showDemo && (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="flex flex-col gap-2"
+                  >
+                    <button type="button" onClick={() => handleDemoFill('KSP-IGP-9999', 'prahari@2026')} className="text-xs bg-white/5 border border-white/10 p-2 rounded text-left hover:bg-white/10 text-white transition">
+                      <strong className="text-yellow-500">Super Admin (L3)</strong><br/><span className="text-gray-400">ID: KSP-IGP-9999 | Pwd: prahari@2026</span>
+                    </button>
+                    <button type="button" onClick={() => handleDemoFill('KSP-ACP-4022', 'prahari@2026')} className="text-xs bg-white/5 border border-white/10 p-2 rounded text-left hover:bg-white/10 text-white transition">
+                      <strong className="text-blue-400">Senior Officer (L2)</strong><br/><span className="text-gray-400">ID: KSP-ACP-4022 | Pwd: prahari@2026</span>
+                    </button>
+                    <button type="button" onClick={() => handleDemoFill('KSP-INS-8921', 'prahari@2026')} className="text-xs bg-white/5 border border-white/10 p-2 rounded text-left hover:bg-white/10 text-white transition">
+                      <strong className="text-green-400">Field Officer (L1)</strong><br/><span className="text-gray-400">ID: KSP-INS-8921 | Pwd: prahari@2026</span>
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
 
             {/* Security note */}
             <div

@@ -5,7 +5,6 @@ import PrahariBot from "./pages/PrahariBot";
 import KpiDashboard from "./pages/KpiDashboard";
 import CrimeMap from "./pages/CrimeMap";
 import LiveIncidents from "./pages/LiveIncidents";
-import PatrolUnits from "./pages/PatrolUnits";
 import Analytics from "./pages/Analytics";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
@@ -14,6 +13,8 @@ import { ThemeProvider } from "./components/theme-provider";
 import { DashboardProvider } from "./context/DashboardContext";
 import { AppProvider } from "./context/AppContext";
 import PageTransition from "./components/PageTransition";
+import ProtectedRoute from "./components/ProtectedRoute";
+import AdminPanel from "./pages/AdminPanel";
 
 // Inner component to use useLocation inside BrowserRouter
 function AppRoutes() {
@@ -25,64 +26,84 @@ function AppRoutes() {
         {/* Login — no layout shell */}
         <Route path="/login" element={<Login />} />
 
+        {/* Default route redirects to dashboard if authenticated, otherwise ProtectedRoute redirects to login */}
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
         {/* Prahari AI Bot */}
-        <Route path="/" element={
-          <DashboardLayout>
-            <PageTransition><PrahariBot /></PageTransition>
-          </DashboardLayout>
+        <Route path="/bot" element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <PageTransition><PrahariBot /></PageTransition>
+            </DashboardLayout>
+          </ProtectedRoute>
         } />
 
         {/* KPI Dashboard */}
         <Route path="/dashboard" element={
-          <DashboardLayout>
-            <PageTransition><KpiDashboard /></PageTransition>
-          </DashboardLayout>
+          <ProtectedRoute>
+            <DashboardLayout>
+              <PageTransition><KpiDashboard /></PageTransition>
+            </DashboardLayout>
+          </ProtectedRoute>
         } />
 
         {/* Crime Map */}
         <Route path="/map" element={
-          <DashboardLayout>
-            <PageTransition><CrimeMap /></PageTransition>
-          </DashboardLayout>
+          <ProtectedRoute>
+            <DashboardLayout>
+              <PageTransition><CrimeMap /></PageTransition>
+            </DashboardLayout>
+          </ProtectedRoute>
         } />
 
         {/* Live Incidents */}
         <Route path="/incidents" element={
-          <DashboardLayout>
-            <PageTransition><LiveIncidents /></PageTransition>
-          </DashboardLayout>
+          <ProtectedRoute>
+            <DashboardLayout>
+              <PageTransition><LiveIncidents /></PageTransition>
+            </DashboardLayout>
+          </ProtectedRoute>
         } />
 
-        {/* Patrol Units */}
-        <Route path="/patrol" element={
-          <DashboardLayout>
-            <PageTransition><PatrolUnits /></PageTransition>
-          </DashboardLayout>
-        } />
 
         {/* Analytics */}
         <Route path="/analytics" element={
-          <DashboardLayout>
-            <PageTransition><Analytics /></PageTransition>
-          </DashboardLayout>
+          <ProtectedRoute>
+            <DashboardLayout>
+              <PageTransition><Analytics /></PageTransition>
+            </DashboardLayout>
+          </ProtectedRoute>
         } />
 
         {/* Reports */}
         <Route path="/reports" element={
-          <DashboardLayout>
-            <PageTransition><Reports /></PageTransition>
-          </DashboardLayout>
+          <ProtectedRoute>
+            <DashboardLayout>
+              <PageTransition><Reports /></PageTransition>
+            </DashboardLayout>
+          </ProtectedRoute>
         } />
 
         {/* Settings */}
         <Route path="/settings" element={
-          <DashboardLayout>
-            <PageTransition><Settings /></PageTransition>
-          </DashboardLayout>
+          <ProtectedRoute>
+            <DashboardLayout>
+              <PageTransition><Settings /></PageTransition>
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+        
+        {/* Admin Panel */}
+        <Route path="/admin" element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <PageTransition><AdminPanel /></PageTransition>
+            </DashboardLayout>
+          </ProtectedRoute>
         } />
 
-        {/* Catch-all */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </AnimatePresence>
   );

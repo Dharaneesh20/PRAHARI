@@ -1,10 +1,23 @@
 import { motion } from "framer-motion";
 import { navigation } from "../../data/navigation";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { auth as authApi } from "../../lib/api";
+import type { UserProfile } from "../../lib/types";
 
 export default function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    authApi.session()
+      .then(user => setProfile(user))
+      .catch(() => {});
+  }, []);
+
+  const clearanceLevel = profile?.clearance_level ?? 1;
+  const filteredNav = navigation.filter(item => (item.level || 1) <= clearanceLevel);
 
   return (
     <aside
@@ -62,7 +75,7 @@ export default function Sidebar() {
       {/* ── Navigation ────────────────────────────────── */}
       <nav className="flex-1 px-3 py-5 overflow-y-auto scrollbar-hide relative z-10">
         <ul className="space-y-1">
-          {navigation.map((item, index) => {
+          {filteredNav.map((item, index) => {
             const isActive = location.pathname === item.path;
             const Icon = item.icon;
 
