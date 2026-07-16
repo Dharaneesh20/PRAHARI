@@ -26,8 +26,8 @@ Three independent deliverables:
      using haversine distance so `eps` is a real distance in meters
      rather than an abstract degree value.
 """
-
 import os
+
 import duckdb
 import numpy as np
 import pandas as pd
@@ -40,7 +40,6 @@ WIDE_AGG_OUT = os.path.join(BASE_DIR, "outputs", "dashboard_wide_aggregated.parq
 WIDE_AGG_CSV = os.path.join(BASE_DIR, "outputs", "dashboard_wide_aggregated.csv")
 GEO_REAL_ONLY_OUT = os.path.join(BASE_DIR, "outputs", "dashboard_geo_real_only.parquet")
 GEO_REAL_ONLY_CSV = os.path.join(BASE_DIR, "outputs", "dashboard_geo_real_only.csv")
-
 os.makedirs(os.path.dirname(WIDE_AGG_OUT), exist_ok=True)
 
 
@@ -317,10 +316,11 @@ if __name__ == "__main__":
     G = build_coaccused_subgraph(con, scope_type="district", scope_value="Bengaluru City")
     summarize_syndicates(G)
     coaccused_path = os.path.join(BASE_DIR, "outputs", "coaccused_bengaluru_city.graphml")
+
     nx.write_graphml(G, coaccused_path)
     print(f"  Saved -> {coaccused_path}")
-
     print("\n--- DBSCAN hotspots (example: Bengaluru City district, real coordinates only) ---")
+
     hotspot_df = run_dbscan_hotspots(con, eps_meters=200, min_samples=25,
                                       scope_district="Bengaluru City", real_coords_only=True)
     hotspots_path = os.path.join(BASE_DIR, "outputs", "hotspots_bengaluru_city.parquet")

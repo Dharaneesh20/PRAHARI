@@ -16,14 +16,13 @@ Also mints a synthetic surrogate key `CaseMasterID` since the source file
 has no FIR-number / case-ID column of its own.
 """
 
-import os
 import pandas as pd
 import numpy as np
+import os
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RAW_CSV_PATH = os.path.join(BASE_DIR, "data", "raw", "FIR_Details_Data.csv")
 OUT_PARQUET_PATH = os.path.join(BASE_DIR, "data", "processed", "fir_step1_geo.parquet")
-
 os.makedirs(os.path.dirname(OUT_PARQUET_PATH), exist_ok=True)
 
 RANDOM_SEED = 42

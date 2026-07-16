@@ -26,7 +26,6 @@ Repeat-offender design (the "Network Builder" requirement):
     handful of "kingpin" identities appear across many FIRs while most
     repeat only 2-3 times — this gives Step 4's graph real hub nodes.
 """
-
 import os
 import duckdb
 import numpy as np
@@ -36,6 +35,7 @@ from faker import Faker
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(BASE_DIR, "db", "karnataka_fir.duckdb")
 FIR_PARQUET = os.path.join(BASE_DIR, "data", "processed", "_fir_with_ids.parquet")
+
 RANDOM_SEED = 42
 
 fake = Faker("en_IN")
