@@ -1,0 +1,31 @@
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Local configuration
+.env
+
+# Large raw and processed data files
+data/raw/FIR_Details_Data.csv
+data/processed/
+
+# DuckDB database files
+db/
+*.duckdb
+*.duckdb.tmp
+
+# Generated analytical outputs (parquets, CSVs, coaccused graphs, and logs)
+outputs/
+
+# IDE settings and system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
