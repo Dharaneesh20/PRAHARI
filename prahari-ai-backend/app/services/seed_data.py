@@ -1,7 +1,7 @@
 """
-In-memory mock data store.
+Initial operational seed records.
 Seeds incidents, patrol units, KPI metrics, reports, and audit entries
-with realistic Karnataka police data matching the frontend API contract.
+matching the frontend API contract.
 """
 import hashlib
 import random
@@ -18,7 +18,7 @@ def _dt(hours_ago: int = 0) -> datetime:
 def _iso(dt: datetime) -> str:
     return dt.isoformat()
 
-def _fake_hash(seed: str) -> str:
+def _seed_hash(seed: str) -> str:
     return "0x" + hashlib.sha256(seed.encode()).hexdigest()[:12].upper()
 
 
@@ -341,14 +341,14 @@ REPORTS: list[dict] = [
 
 # ─── Audit Log ────────────────────────────────────────────────────────────────
 _AUDIT_ENTRIES: list[dict] = [
-    {"id": "AUD-001", "action": "Authenticated — login", "timestamp": _iso(_dt(4)), "resource": "AUTH", "hash": _fake_hash("AUD-001")},
-    {"id": "AUD-002", "action": "Viewed incident details", "timestamp": _iso(_dt(3)), "resource": "INC-005", "hash": _fake_hash("AUD-002")},
-    {"id": "AUD-003", "action": "Updated incident status to resolved", "timestamp": _iso(_dt(3)), "resource": "INC-005", "hash": _fake_hash("AUD-003")},
-    {"id": "AUD-004", "action": "Viewed KPI dashboard", "timestamp": _iso(_dt(2)), "resource": "KPI", "hash": _fake_hash("AUD-004")},
-    {"id": "AUD-005", "action": "Assigned UNIT-03 to INC-001", "timestamp": _iso(_dt(2)), "resource": "INC-001", "hash": _fake_hash("AUD-005")},
-    {"id": "AUD-006", "action": "Generated AI report draft", "timestamp": _iso(_dt(1)), "resource": "INC-002", "hash": _fake_hash("AUD-006")},
-    {"id": "AUD-007", "action": "Queried NL2SQL: chargesheet rates comparison", "timestamp": _iso(_dt(1)), "resource": "NL2SQL", "hash": _fake_hash("AUD-007")},
-    {"id": "AUD-008", "action": "Viewed analytics patterns", "timestamp": _iso(_dt(0)), "resource": "ANALYTICS", "hash": _fake_hash("AUD-008")},
+    {"id": "AUD-001", "action": "Authenticated — login", "timestamp": _iso(_dt(4)), "resource": "AUTH", "hash": _seed_hash("AUD-001")},
+    {"id": "AUD-002", "action": "Viewed incident details", "timestamp": _iso(_dt(3)), "resource": "INC-005", "hash": _seed_hash("AUD-002")},
+    {"id": "AUD-003", "action": "Updated incident status to resolved", "timestamp": _iso(_dt(3)), "resource": "INC-005", "hash": _seed_hash("AUD-003")},
+    {"id": "AUD-004", "action": "Viewed KPI dashboard", "timestamp": _iso(_dt(2)), "resource": "KPI", "hash": _seed_hash("AUD-004")},
+    {"id": "AUD-005", "action": "Assigned UNIT-03 to INC-001", "timestamp": _iso(_dt(2)), "resource": "INC-001", "hash": _seed_hash("AUD-005")},
+    {"id": "AUD-006", "action": "Generated AI report draft", "timestamp": _iso(_dt(1)), "resource": "INC-002", "hash": _seed_hash("AUD-006")},
+    {"id": "AUD-007", "action": "Queried NL2SQL: chargesheet rates comparison", "timestamp": _iso(_dt(1)), "resource": "NL2SQL", "hash": _seed_hash("AUD-007")},
+    {"id": "AUD-008", "action": "Viewed analytics patterns", "timestamp": _iso(_dt(0)), "resource": "ANALYTICS", "hash": _seed_hash("AUD-008")},
 ]
 
 
@@ -442,7 +442,7 @@ def add_audit_entry(action: str, resource: str) -> dict:
         "action": action,
         "timestamp": _iso(_now()),
         "resource": resource,
-        "hash": _fake_hash(new_id + action),
+        "hash": _seed_hash(new_id + action),
     }
     _AUDIT_ENTRIES.append(entry)
     return entry

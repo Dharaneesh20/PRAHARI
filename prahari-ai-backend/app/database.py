@@ -58,11 +58,11 @@ def init_db() -> None:
             _db_available = True
             logger.info("DuckDB connected: %s", db_path)
         except Exception as e:
-            logger.warning("DuckDB connection failed (%s): %s — falling back to mock data", db_path, e)
+            logger.warning("DuckDB connection failed (%s): %s. ML endpoints will report unavailable.", db_path, e)
             _db_available = False
     else:
         logger.warning(
-            "DuckDB file not found at '%s'. ML endpoints will return mock/fallback data. "
+            "DuckDB file not found at '%s'. ML endpoints will report unavailable. "
             "Run the ML pipeline (step1–step6) to populate the database.",
             db_path,
         )

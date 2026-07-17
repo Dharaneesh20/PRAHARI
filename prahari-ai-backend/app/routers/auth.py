@@ -13,6 +13,23 @@ router = APIRouter()
 bearer = HTTPBearer(auto_error=False)
 
 
+def serialize_user(user: User) -> dict:
+    return {
+        "id": str(user.id),
+        "name": user.name,
+        "username": user.username,
+        "badgeId": user.badge_id,
+        "rank": user.rank or "",
+        "station": user.station or "",
+        "role": user.role,
+        "email": user.email,
+        "phone": user.phone,
+        "bio": user.bio,
+        "avatar": user.avatar,
+        "clearance_level": user.clearance_level,
+    }
+
+
 @router.post("/login", response_model=LoginResponse, summary="Officer login")
 async def login(body: LoginRequest, db: Session = Depends(get_auth_db)):
     """Authenticate an officer using Badge ID and password."""
@@ -25,16 +42,7 @@ async def login(body: LoginRequest, db: Session = Depends(get_auth_db)):
     token = create_access_token({"sub": user.badge_id})
     return {
         "token": token,
-        "user": {
-            "id": str(user.id),
-            "name": user.name,
-            "badgeId": user.badge_id,
-            "rank": user.rank or "",
-            "station": user.station or "",
-            "role": user.role,
-            "email": user.email,
-            "phone": user.phone,
-        },
+        "user": serialize_user(user),
     }
 
 
@@ -52,11 +60,4 @@ async def logout(
 @router.get("/session", response_model=SessionResponse, summary="Get current session")
 async def get_session(current_user: User = Depends(get_current_user)):
     """Return the profile for the currently authenticated officer."""
-    return {
-        "id": str(current_user.id),
-        "name": current_user.name,
-        "badgeId": current_user.badge_id,
-        "rank": current_user.rank or "",
-        "station": current_user.station or "",
-        "role": current_user.role,
-    }
+    return serialize_user(current_user)

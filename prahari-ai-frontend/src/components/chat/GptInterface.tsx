@@ -397,8 +397,22 @@ export default function GptInterface() {
         </div>
       </div>
 
-      <ConsentSheet isOpen={showCameraConsent} title="Camera Access Request" description="Prahari AI needs camera access to process visual evidence and OCR scans." onAllow={handleCameraConfirm} onDeny={() => setShowCameraConsent(false)} />
-      <ConsentSheet isOpen={showMicConsent} title="Microphone Access Request" description="Enable voice commands to speak directly with Prahari AI during fieldwork." onAllow={handleMicConfirm} onDeny={() => setShowMicConsent(false)} />
+      <ConsentSheet
+        isOpen={showCameraConsent}
+        headline="Camera Access Request"
+        body="Prahari AI needs camera access to process visual evidence and OCR scans."
+        icon={<Camera className="w-7 h-7" style={{ color: "#C9A227" }} />}
+        onConfirm={handleCameraConfirm}
+        onDismiss={() => setShowCameraConsent(false)}
+      />
+      <ConsentSheet
+        isOpen={showMicConsent}
+        headline="Microphone Access Request"
+        body="Enable voice commands to speak directly with Prahari AI during fieldwork."
+        icon={<Mic className="w-7 h-7" style={{ color: "#C9A227" }} />}
+        onConfirm={handleMicConfirm}
+        onDismiss={() => setShowMicConsent(false)}
+      />
       <AttachmentModal isOpen={showAttach} onClose={() => setShowAttach(false)} />
     </div>
   );

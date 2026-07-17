@@ -7,12 +7,14 @@ from app.models.user import User
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, status
 
 from app.dependencies import get_current_user, require_level_1
+from app.core.db import get_auth_db
 from app.models.incidents import (
     Incident, UpdateStatusRequest, UpdateStatusResponse,
     AssignUnitRequest, AssignUnitResponse,
 )
-from app.services import mock_store
+from app.services import operational_store
 from app.services.websocket_manager import incident_manager, simulate_incident_stream
+from sqlalchemy.orm import Session
 
 router = APIRouter()
 
@@ -25,9 +27,10 @@ async def list_incidents(
     severity: str = Query(default="all"),
     status: str = Query(default="all"),
     current_user: User = Depends(require_level_1),
+    db: Session = Depends(get_auth_db),
 ):
     """Retrieve all incidents, filterable by severity and status."""
-    return mock_store.get_all_incidents(severity=severity, status=status)
+    return operational_store.list_incidents(db, severity=severity, status=status)
 
 
 @router.patch("/{incident_id}/status", response_model=UpdateStatusResponse, summary="Update incident status")
@@ -35,9 +38,10 @@ async def update_incident_status(
     incident_id: str,
     body: UpdateStatusRequest,
     current_user: User = Depends(require_level_1),
+    db: Session = Depends(get_auth_db),
 ):
     """Update the operational status of an incident."""
-    inc = mock_store.update_incident_status(incident_id, body.status)
+    inc = operational_store.update_incident_status(db, incident_id, body.status, current_user.name)
     if inc is None:
         raise HTTPException(status_code=404, detail=f"Incident {incident_id} not found.")
     return {
@@ -52,11 +56,12 @@ async def assign_unit(
     incident_id: str,
     body: AssignUnitRequest,
     current_user: User = Depends(require_level_1),
+    db: Session = Depends(get_auth_db),
 ):
     """Assign a patrol unit to a specific incident."""
-    inc = mock_store.assign_unit_to_incident(incident_id, body.unitId)
+    inc = operational_store.assign_unit_to_incident(db, incident_id, body.unitId, current_user.name)
     if inc is None:
-        raise HTTPException(status_code=404, detail=f"Incident {incident_id} not found.")
+        raise HTTPException(status_code=404, detail=f"Incident {incident_id} or unit {body.unitId} not found.")
     return {
         "id": inc["id"],
         "assignedUnitId": inc["assignedUnitId"],

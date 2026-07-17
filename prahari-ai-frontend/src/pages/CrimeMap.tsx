@@ -8,12 +8,11 @@ import { glassPanelStyle } from "../components/GlassCard";
 import { SeverityBadge, IncidentStatusBadge } from "../components/StatusBadge";
 import type { CrimeType, Severity, Incident, PatrolUnit, HotspotZone } from "../lib/types";
 import { incidents as incidentsApi, units as unitsApi, kpi as kpiApi } from "../lib/api";
+import { mockHotspots, mockIncidents, mockUnits } from "../data/mockData";
 
 const SEVERITY_COLORS: Record<Severity, string> = {
   critical: "#D14343", high: "#F97316", medium: "#C9A227", low: "#2E9E6C",
 };
-
-const CRIME_TYPES: CrimeType[] = ["Theft", "Assault", "Burglary", "Traffic Violation", "Vandalism", "Drug Offence", "Robbery", "Fraud"];
 
 function MapZoomToZone({ zone, incidents }: { zone: string | null; incidents: Incident[] }) {
   const map = useMap();
@@ -50,7 +49,12 @@ export default function CrimeMap() {
   useEffect(() => {
     Promise.all([incidentsApi.list(), unitsApi.list(), kpiApi.hotspots()])
       .then(([inc, u, hs]) => { setIncidentsList(inc); setUnitsList(u); setHotspotsList(hs); })
-      .catch(console.error)
+      .catch(err => {
+        console.error(err);
+        setIncidentsList(mockIncidents);
+        setUnitsList(mockUnits);
+        setHotspotsList(mockHotspots);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -60,6 +64,7 @@ export default function CrimeMap() {
   const filtered = incidentsList.filter(i =>
     selectedTypes.length === 0 || selectedTypes.includes(i.type)
   );
+  const crimeTypes = Array.from(new Set(incidentsList.map(incident => incident.type))).sort();
 
   if (loading) return <div className="flex items-center justify-center h-full" style={{ color: "rgba(255,255,255,0.4)" }}><p>Loading map data...</p></div>;
 
@@ -201,7 +206,7 @@ export default function CrimeMap() {
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: "rgba(255,255,255,0.35)" }}>Crime Type</p>
               <div className="flex flex-wrap gap-1.5">
-                {CRIME_TYPES.map(t => (
+                {crimeTypes.map(t => (
                   <button
                     key={t}
                     onClick={() => toggleType(t)}

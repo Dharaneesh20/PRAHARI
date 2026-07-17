@@ -1,9 +1,19 @@
 import logging
+from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
 from app.core.db import engine, Base
 from app.models.user import User
 from app.models.chat import ChatSession, ChatMessage
+from app.models.operational import (
+    AuditEntryRecord,
+    IncidentRecord,
+    NotificationRecord,
+    PatrolUnitRecord,
+    ReportRecord,
+    UserSettingsRecord,
+)
 from app.services.auth_service import _hash_password
+from app.services.operational_store import seed_operational_db
 
 logger = logging.getLogger(__name__)
 
@@ -91,9 +101,26 @@ _DEFAULT_USERS = [
     },
 ]
 
+def _ensure_user_profile_columns() -> None:
+    inspector = inspect(engine)
+    if not inspector.has_table("users"):
+        return
+
+    existing = {column["name"] for column in inspector.get_columns("users")}
+    additions = {
+        "username": "ALTER TABLE users ADD COLUMN username VARCHAR",
+        "bio": "ALTER TABLE users ADD COLUMN bio VARCHAR",
+        "avatar": "ALTER TABLE users ADD COLUMN avatar VARCHAR",
+    }
+    with engine.begin() as conn:
+        for column, statement in additions.items():
+            if column not in existing:
+                conn.execute(text(statement))
+
 def init_auth_db(db: Session) -> None:
     # Create all tables in the engine. This is equivalent to "Create Table If Not Exists"
     Base.metadata.create_all(bind=engine)
+    _ensure_user_profile_columns()
     
     # Check if the database is already seeded
     user = db.query(User).first()
@@ -104,3 +131,5 @@ def init_auth_db(db: Session) -> None:
             db.add(db_user)
         db.commit()
         logger.info("Successfully seeded auth database.")
+
+    seed_operational_db(db)

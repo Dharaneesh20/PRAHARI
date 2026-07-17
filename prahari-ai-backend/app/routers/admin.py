@@ -1,6 +1,7 @@
 from typing import List, Optional
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.dependencies import require_level_3
@@ -20,6 +21,13 @@ class UserCreate(BaseModel):
     phone: str
     clearance_level: int
     password: str
+
+
+def _optional_text(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    stripped = value.strip()
+    return stripped or None
 
 class UserUpdate(BaseModel):
     name: Optional[str] = None
@@ -65,21 +73,28 @@ async def create_user(user: UserCreate, current_user: User = Depends(require_lev
     """Create a new user. Requires Level 3 clearance."""
     if db.query(User).filter(User.badge_id == user.badgeId).first():
         raise HTTPException(status_code=400, detail="User with this badgeId already exists.")
+    email = _optional_text(user.email)
+    if email and db.query(User).filter(User.email == email).first():
+        raise HTTPException(status_code=400, detail="User with this email already exists.")
     
     db_user = User(
-        name=user.name,
-        badge_id=user.badgeId,
-        rank=user.rank,
-        station=user.station,
-        role=user.role,
-        email=user.email,
-        phone=user.phone,
+        name=user.name.strip(),
+        badge_id=user.badgeId.strip(),
+        rank=_optional_text(user.rank),
+        station=_optional_text(user.station),
+        role=user.role.strip(),
+        email=email,
+        phone=_optional_text(user.phone),
         clearance_level=user.clearance_level,
         hashed_password=_hash_password(user.password)
     )
     
-    db.add(db_user)
-    db.commit()
+    try:
+        db.add(db_user)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="A user with the same badge ID or email already exists.")
     db.refresh(db_user)
     
     return UserResponse(
@@ -101,8 +116,18 @@ async def update_user(badgeId: str, user_update: UserUpdate, current_user: User 
         raise HTTPException(status_code=404, detail="User not found")
         
     update_data = user_update.model_dump(exclude_unset=True)
+    if "email" in update_data:
+        update_data["email"] = _optional_text(update_data["email"])
+        if update_data["email"]:
+            existing_email = db.query(User).filter(User.email == update_data["email"], User.id != target_user.id).first()
+            if existing_email:
+                raise HTTPException(status_code=400, detail="User with this email already exists.")
+    if "phone" in update_data:
+        update_data["phone"] = _optional_text(update_data["phone"])
     if "password" in update_data:
-        target_user.hashed_password = _hash_password(update_data.pop("password"))
+        password = update_data.pop("password")
+        if password:
+            target_user.hashed_password = _hash_password(password)
         
     # Map badgeId to badge_id
     if "badgeId" in update_data:
@@ -111,7 +136,11 @@ async def update_user(badgeId: str, user_update: UserUpdate, current_user: User 
     for k, v in update_data.items():
         setattr(target_user, k, v)
         
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="A user with the same badge ID or email already exists.")
     db.refresh(target_user)
     
     return UserResponse(

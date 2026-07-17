@@ -1,6 +1,6 @@
 // ============================================================
-// PRAHARI AI — Shared Types  (replaces src/mocks/types.ts)
-// All type definitions moved here; no mock data.
+// PRAHARI AI — Shared Types
+// All frontend data shapes consumed from backend APIs.
 // ============================================================
 
 export type Severity = "low" | "medium" | "high" | "critical";
@@ -87,15 +87,49 @@ export interface AuditEntry {
   hash: string;
 }
 
+export interface AppPreferences {
+  density: "comfortable" | "compact";
+  reduceMotion: boolean;
+  soundAlerts: boolean;
+  language: "en" | "kn";
+  syncFilters: boolean;
+}
+
+export interface NotificationPreferences {
+  newIncident: boolean;
+  assignedCase: boolean;
+  reportReady: boolean;
+  systemAlerts: boolean;
+  channels: { inApp: boolean; email: boolean; sms: boolean };
+}
+
+export interface AppSettings {
+  preferences: AppPreferences;
+  notificationPreferences: NotificationPreferences;
+}
+
+export interface NotificationItem {
+  id: string;
+  title: string;
+  message: string;
+  category: string;
+  resource: string | null;
+  read: boolean;
+  createdAt: string;
+}
+
 export interface UserProfile {
   id: string;
   name: string;
+  username?: string | null;
   badgeId: string;
   rank: string;
   station: string;
   role: string;
   email: string;
   phone: string;
+  bio?: string | null;
+  avatar?: string | null;
   clearance_level: number;
 }
 

@@ -11,7 +11,6 @@ import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 import { ThemeProvider } from "./components/theme-provider";
 import { DashboardProvider } from "./context/DashboardContext";
-import { AppProvider } from "./context/AppContext";
 import PageTransition from "./components/PageTransition";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminPanel from "./pages/AdminPanel";
@@ -112,13 +111,11 @@ function AppRoutes() {
 function App() {
   return (
     <ThemeProvider defaultTheme="system" storageKey="prahari-theme">
-      <AppProvider>
-        <DashboardProvider>
-          <BrowserRouter>
-            <AppRoutes />
-          </BrowserRouter>
-        </DashboardProvider>
-      </AppProvider>
+      <DashboardProvider>
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </DashboardProvider>
     </ThemeProvider>
   );
 }

@@ -11,12 +11,16 @@ class LoginRequest(BaseModel):
 class UserProfile(BaseModel):
     id: str
     name: str
+    username: Optional[str] = None
     badgeId: str
     rank: str
     station: str
     role: str
     email: Optional[str] = None
     phone: Optional[str] = None
+    bio: Optional[str] = None
+    avatar: Optional[str] = None
+    clearance_level: int = 1
 
 
 class LoginResponse(BaseModel):
@@ -24,13 +28,8 @@ class LoginResponse(BaseModel):
     user: UserProfile
 
 
-class SessionResponse(BaseModel):
-    id: str
-    name: str
-    badgeId: str
-    rank: str
-    station: str
-    role: str
+class SessionResponse(UserProfile):
+    pass
 
 
 class LogoutResponse(BaseModel):
