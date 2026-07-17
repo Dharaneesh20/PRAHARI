@@ -138,7 +138,7 @@ export default function Sidebar() {
                   {isActive && (
                     <motion.div
                       layoutId="active-nav-bar"
-                      className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-r-full"
+                      className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-0 rounded-r-full"
                       style={{ background: "#C9A227" }}
                     />
                   )}
