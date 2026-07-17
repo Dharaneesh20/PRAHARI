@@ -6,6 +6,7 @@ import { ReportStatusBadge } from "../components/StatusBadge";
 import LiquidOrb from "../components/LiquidOrb";
 import type { Report } from "../lib/types";
 import { reports as reportsApi } from "../lib/api";
+import { mockReports } from "../data/mockData";
 
 const DRAFT_TEXT = `CHARGESHEET / INCIDENT SUMMARY DRAFT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -106,7 +107,11 @@ export default function Reports() {
         setReportsList(res);
         if (res.length > 0) setSelected(res[0]);
       })
-      .catch(console.error)
+      .catch(err => {
+        console.error(err);
+        setReportsList(mockReports);
+        setSelected(mockReports[0] ?? null);
+      })
       .finally(() => setLoading(false));
   }, []);
 

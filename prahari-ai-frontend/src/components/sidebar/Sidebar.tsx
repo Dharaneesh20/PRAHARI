@@ -1,23 +1,27 @@
 import { motion } from "framer-motion";
 import { navigation } from "../../data/navigation";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
-import { auth as authApi } from "../../lib/api";
-import type { UserProfile } from "../../lib/types";
+import { useEffect } from "react";
+import { useAppContext } from "../../context/AppContext";
+import { clearToken } from "../../lib/api";
 
 export default function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const { profile, refreshProfile, setProfile, t } = useAppContext();
 
   useEffect(() => {
-    authApi.session()
-      .then(user => setProfile(user))
-      .catch(() => {});
-  }, []);
+    refreshProfile().catch(() => {});
+  }, [refreshProfile]);
 
   const clearanceLevel = profile?.clearance_level ?? 1;
   const filteredNav = navigation.filter(item => (item.level || 1) <= clearanceLevel);
+  const initials = profile?.name.split(" ").map((part: string) => part[0]).join("").slice(0, 2) || "--";
+  const logout = () => {
+    clearToken();
+    setProfile(null);
+    navigate("/login", { replace: true });
+  };
 
   return (
     <aside
@@ -67,7 +71,7 @@ export default function Sidebar() {
           </h1>
           <p className="text-[10px] uppercase font-bold tracking-widest mt-1"
             style={{ color: "rgba(201,162,39,0.8)" }}>
-            Command Center
+            {t("commandCenter")}
           </p>
         </div>
       </div>
@@ -127,7 +131,7 @@ export default function Sidebar() {
                     className="text-sm font-medium tracking-wide"
                     style={{ fontWeight: isActive ? 600 : 400 }}
                   >
-                    {item.name}
+                    {t(item.labelKey || item.name)}
                   </span>
 
                   {/* Active left accent bar */}
@@ -168,7 +172,7 @@ export default function Sidebar() {
                   animation: "gradientRing 4s ease infinite",
                 }}
               >
-                IR
+                {initials}
               </div>
               {/* Breathing green status dot */}
               <div
@@ -182,17 +186,24 @@ export default function Sidebar() {
             </div>
 
             <div>
-              <p className="text-sm font-semibold text-white leading-none">Inspector Raj</p>
+              <p className="text-sm font-semibold text-white leading-none">{profile?.name || t("loadingProfile")}</p>
               <p className="text-[10px] mt-1 flex items-center gap-1.5"
                 style={{ color: "rgba(255,255,255,0.45)" }}>
                 <span
                   className="w-1.5 h-1.5 rounded-full inline-block"
                   style={{ background: "#2E9E6C", animation: "breathePulse 2s ease-in-out infinite" }}
                 />
-                Karnataka Police · On Duty
+                {profile?.station || "Karnataka Police"} · On Duty
               </p>
             </div>
           </div>
+          <button
+            onClick={logout}
+            className="mt-3 w-full rounded-xl px-3 py-2 text-xs font-bold transition-all hover:bg-white/10"
+            style={{ color: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.08)" }}
+          >
+            {t("logout")}
+          </button>
         </div>
       </div>
     </aside>

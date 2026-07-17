@@ -7,6 +7,7 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     badge_id = Column(String, unique=True, index=True, nullable=False)
+    username = Column(String, unique=True, index=True, nullable=True)
     name = Column(String, nullable=False)
     email = Column(String, unique=True, index=True, nullable=True)
     phone = Column(String, nullable=True)
@@ -22,6 +23,7 @@ class User(Base):
     district = Column(String, nullable=True)
     station = Column(String, nullable=True)
     avatar = Column(String, nullable=True)
+    bio = Column(String, nullable=True)
     
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

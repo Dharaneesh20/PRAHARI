@@ -7,8 +7,9 @@ import GlassCard, { glassPanelStyle } from "../components/GlassCard";
 import DateRangePicker, { type DateRange } from "../components/DateRangePicker";
 import { SvgAreaChart } from "../components/SvgChart";
 import { SeverityBadge } from "../components/StatusBadge";
-import { kpi as kpiApi, auth as authApi } from "../lib/api";
+import { kpi as kpiApi, auth as authApi, notifications as notificationApi } from "../lib/api";
 import type { KpiSummary, TrendPoint, HotspotZone, UserProfile } from "../lib/types";
+import { mockHotspots, mockKpiSummary, mockNotifications, mockTrend } from "../data/mockData";
 
 // Alert ticker item
 function AlertTicker({ alerts }: { alerts: { id: string; text: string; timestamp: string }[] }) {
@@ -30,7 +31,9 @@ function AlertTicker({ alerts }: { alerts: { id: string; text: string; timestamp
           animate={{ x: paused ? undefined : ["0%", "-50%"] }}
           transition={{ duration: 24, ease: "linear", repeat: Infinity }}
         >
-          {doubled.map((a, i) => (
+          {doubled.length === 0 ? (
+            <span className="text-xs shrink-0" style={{ color: "rgba(255,255,255,0.45)" }}>No active alerts</span>
+          ) : doubled.map((a, i) => (
             <span key={i} className="text-xs shrink-0" style={{ color: "rgba(255,255,255,0.7)" }}>
               {a.text} <span style={{ color: "rgba(255,255,255,0.3)", marginLeft: 4 }}>{a.timestamp}</span>
             </span>
@@ -41,10 +44,6 @@ function AlertTicker({ alerts }: { alerts: { id: string; text: string; timestamp
   );
 }
 
-const FALLBACK_ALERTS = [
-  { id: "A1", text: "🔴 Live alerts will appear here once backend connects", timestamp: "now" },
-];
-
 type AlertItem = { id: string; text: string; timestamp: string };
 
 export default function KpiDashboard() {
@@ -53,7 +52,7 @@ export default function KpiDashboard() {
   const [kpiSummary, setKpiSummary] = useState<KpiSummary | null>(null);
   const [trendData, setTrendData] = useState<TrendPoint[]>([]);
   const [hotspots, setHotspots] = useState<HotspotZone[]>([]);
-  const [liveAlerts] = useState<AlertItem[]>(FALLBACK_ALERTS);
+  const [liveAlerts, setLiveAlerts] = useState<AlertItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<UserProfile | null>(null);
 
@@ -63,12 +62,28 @@ export default function KpiDashboard() {
       kpiApi.trend(dateRange),
       kpiApi.hotspots(),
       authApi.session(),
-    ]).then(([summary, trend, hs, user]) => {
+      notificationApi.list(),
+    ]).then(([summary, trend, hs, user, alerts]) => {
       setKpiSummary(summary);
       setTrendData(trend);
       setHotspots(hs);
       setProfile(user);
-    }).catch(console.error)
+      setLiveAlerts(alerts.slice(0, 5).map(item => ({
+        id: item.id,
+        text: `${item.title}: ${item.message}`,
+        timestamp: new Date(item.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
+      })));
+    }).catch(err => {
+      console.error(err);
+      setKpiSummary(mockKpiSummary);
+      setTrendData(mockTrend);
+      setHotspots(mockHotspots);
+      setLiveAlerts(mockNotifications.map(item => ({
+        id: item.id,
+        text: `${item.title}: ${item.message}`,
+        timestamp: new Date(item.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
+      })));
+    })
       .finally(() => setLoading(false));
   }, [dateRange]);
 
@@ -104,15 +119,11 @@ export default function KpiDashboard() {
           <StatCard label="On-Duty Units" value={kpiSummary?.onDutyUnits ?? 0} icon={<Shield className="w-5 h-5" />} accentColor="#2E9E6C" delay={0.15} />
           <StatCard label="Avg Response" value={kpiSummary?.avgResponseTime ?? 0} suffix=" min" decimals={1} icon={<Clock className="w-5 h-5" />} accentColor="#C9A227" trend={-0.8} trendLabel=" vs last wk" delay={0.2} />
           
-          {clearanceLevel >= 3 ? (
-            <StatCard label="Classified Ops" value={3} icon={<Activity className="w-5 h-5" />} accentColor="#8B5CF6" delay={0.25} />
-          ) : (
-            <StatCard
-              label="Clearance Rate" value={kpiSummary?.clearanceRate ?? 0} suffix="%" decimals={1}
-              icon={<TrendingUp className="w-5 h-5" />} accentColor="#2E9E6C"
-              trend={kpiSummary?.clearanceRateTrend ?? 0} trendLabel="% vs last period" delay={0.25}
-            />
-          )}
+          <StatCard
+            label="Clearance Rate" value={kpiSummary?.clearanceRate ?? 0} suffix="%" decimals={1}
+            icon={<TrendingUp className="w-5 h-5" />} accentColor="#2E9E6C"
+            trend={kpiSummary?.clearanceRateTrend ?? 0} trendLabel="% vs last period" delay={0.25}
+          />
         </div>
 
         {/* ── Main Grid ───────────────────────────────────────── */}

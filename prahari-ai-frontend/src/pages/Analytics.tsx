@@ -6,6 +6,7 @@ import { SvgAreaChart, SvgBarChart } from "../components/SvgChart";
 import DateRangePicker, { type DateRange } from "../components/DateRangePicker";
 import { analytics as analyticsApi } from "../lib/api";
 import type { CrimeCategory, RiskZone, StationStats, AgeGroup, TimeSlot } from "../lib/types";
+import { mockAgeGroups, mockCategories, mockRiskZones, mockStations, mockTimeDistribution } from "../data/mockData";
 
 type Tab = "patterns" | "risk" | "stations" | "demographics";
 const TABS: { value: Tab; label: string }[] = [
@@ -125,7 +126,14 @@ export default function Analytics() {
       setStations(stat);
       setAgeGroups(demo.ageGroups);
       setTimeDistribution(demo.timeDistribution);
-    }).catch(console.error)
+    }).catch(err => {
+      console.error(err);
+      setCategories(mockCategories);
+      setRiskZones(mockRiskZones);
+      setStations(mockStations);
+      setAgeGroups(mockAgeGroups);
+      setTimeDistribution(mockTimeDistribution);
+    })
       .finally(() => setLoading(false));
   }, []);
 

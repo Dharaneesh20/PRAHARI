@@ -8,17 +8,19 @@ from app.models.user import User
 from fastapi.responses import StreamingResponse
 
 from app.dependencies import get_current_user
+from app.core.db import get_auth_db
 from app.models.reports import Report, GenerateReportRequest, UpdateReportRequest, UpdateReportResponse
-from app.services import mock_store
+from app.services import operational_store
 from app.services.report_generator import stream_report_tokens
+from sqlalchemy.orm import Session
 
 router = APIRouter()
 
 
 @router.get("", response_model=List[Report], summary="List all reports")
-async def list_reports(current_user: User = Depends(get_current_user)):
+async def list_reports(current_user: User = Depends(get_current_user), db: Session = Depends(get_auth_db)):
     """Return all available case reports and summaries."""
-    return mock_store.get_all_reports()
+    return operational_store.list_reports(db)
 
 
 @router.post("/generate", summary="Generate AI FIR/report draft (SSE)")
@@ -45,13 +47,14 @@ async def update_report(
     report_id: str,
     body: UpdateReportRequest,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_auth_db),
 ):
     """Save edits to a report's title and/or sections."""
     sections_data = None
     if body.sections is not None:
         sections_data = [s.model_dump() for s in body.sections]
 
-    report = mock_store.update_report(report_id, body.title, sections_data)
+    report = operational_store.update_report(db, report_id, body.title, sections_data, current_user.name)
     if report is None:
         raise HTTPException(status_code=404, detail=f"Report {report_id} not found.")
     return {"status": "success", "updatedAt": datetime.now(timezone.utc)}

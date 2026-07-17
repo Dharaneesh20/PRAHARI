@@ -186,14 +186,89 @@ export const reports = {
 
 // ── Settings ──────────────────────────────────────────────────
 export const settings = {
-  updateProfile: (email?: string, phone?: string) =>
-    apiFetch<{ status: string; profile: { email?: string; phone?: string } }>("/settings/profile", {
+  updateProfile: (profile: Partial<import("./types").UserProfile>) =>
+    apiFetch<{ status: string; profile: import("./types").UserProfile }>("/settings/profile", {
       method: "PATCH",
-      body: JSON.stringify({ email, phone }),
+      body: JSON.stringify(profile),
+    }),
+
+  changePassword: (currentPassword: string, newPassword: string) =>
+    apiFetch<{ status: string; message: string }>("/settings/password", {
+      method: "PATCH",
+      body: JSON.stringify({ currentPassword, newPassword }),
+    }),
+
+  deleteAccount: (password: string) =>
+    apiFetch<{ status: string; message: string }>("/settings/account", {
+      method: "DELETE",
+      body: JSON.stringify({ password }),
+    }),
+
+  get: () =>
+    apiFetch<import("./types").AppSettings>("/settings"),
+
+  update: (body: Partial<import("./types").AppSettings>) =>
+    apiFetch<import("./types").AppSettings>("/settings", {
+      method: "PATCH",
+      body: JSON.stringify(body),
     }),
 
   auditLog: () =>
-    apiFetch<import("./types").AuditEntry[]>("/audit-log"),
+    apiFetch<import("./types").AuditEntry[]>("/settings/audit-log"),
+};
+
+export const notifications = {
+  list: () =>
+    apiFetch<import("./types").NotificationItem[]>("/settings/notifications"),
+
+  unreadCount: () =>
+    apiFetch<{ count: number }>("/settings/notifications/unread-count"),
+
+  markRead: (id: string) =>
+    apiFetch<import("./types").NotificationItem>(`/settings/notifications/${id}/read`, { method: "PATCH" }),
+
+  delete: (id: string) =>
+    apiFetch<{ status: string }>(`/settings/notifications/${id}`, { method: "DELETE" }),
+};
+
+export type AdminUserPayload = {
+  name: string;
+  badgeId: string;
+  rank: string;
+  station: string;
+  role: string;
+  email: string;
+  phone: string;
+  clearance_level: number;
+  password?: string;
+};
+
+export const admin = {
+  users: () =>
+    apiFetch<import("./types").UserProfile[]>("/admin/users"),
+
+  createUser: (user: AdminUserPayload & { password: string }) =>
+    apiFetch<import("./types").UserProfile>("/admin/users", {
+      method: "POST",
+      body: JSON.stringify(user),
+    }),
+
+  updateUser: (badgeId: string, user: AdminUserPayload) =>
+    apiFetch<import("./types").UserProfile>(`/admin/users/${encodeURIComponent(badgeId)}`, {
+      method: "PUT",
+      body: JSON.stringify(user),
+    }),
+
+  deleteUser: (badgeId: string) =>
+    apiFetch<{ status: string; message: string }>(`/admin/users/${encodeURIComponent(badgeId)}`, {
+      method: "DELETE",
+    }),
+
+  pipelineStatus: () =>
+    apiFetch<{ is_running: boolean; current_step?: string; logs?: string[] }>("/admin/pipeline-status"),
+
+  runPipeline: () =>
+    apiFetch<{ message: string }>("/admin/run-pipeline", { method: "POST" }),
 };
 
 // ── ML / Analytics Engine ─────────────────────────────────────

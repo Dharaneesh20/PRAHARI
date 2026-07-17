@@ -8,7 +8,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
-from app.services import mock_store
+from app.core.db import SessionLocal
+from app.services import operational_store
 
 logger = logging.getLogger(__name__)
 
@@ -28,9 +29,13 @@ class AuditMiddleware(BaseHTTPMiddleware):
             if not any(path.startswith(p) for p in skip_prefixes):
                 action = f"{request.method} {path} ({response.status_code}) [{elapsed}ms]"
                 resource = path.split("/")[-1] or path
+                db = SessionLocal()
                 try:
-                    mock_store.add_audit_entry(action, resource)
+                    operational_store.add_audit_entry(db, action, resource)
+                    db.commit()
                 except Exception as e:
                     logger.debug("Audit log write failed: %s", e)
+                finally:
+                    db.close()
 
         return response

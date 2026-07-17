@@ -56,14 +56,31 @@ def get_user_by_badge(db: Session, badge_id: str) -> Optional[User]:
 def get_users(db: Session, skip: int = 0, limit: int = 100):
     return db.query(User).offset(skip).limit(limit).all()
 
-def update_user_profile(db: Session, badge_id: str, email: Optional[str], phone: Optional[str]) -> Optional[User]:
+def update_user_profile(
+    db: Session,
+    badge_id: str,
+    name: Optional[str] = None,
+    username: Optional[str] = None,
+    email: Optional[str] = None,
+    phone: Optional[str] = None,
+    bio: Optional[str] = None,
+    avatar: Optional[str] = None,
+) -> Optional[User]:
     user = get_user_by_badge(db, badge_id)
     if not user:
         return None
+    if name is not None:
+        user.name = name.strip()
+    if username is not None:
+        user.username = username.strip() or None
     if email is not None:
-        user.email = email
+        user.email = email.strip() or None
     if phone is not None:
-        user.phone = phone
+        user.phone = phone.strip() or None
+    if bio is not None:
+        user.bio = bio.strip() or None
+    if avatar is not None:
+        user.avatar = avatar.strip() or None
     db.commit()
     db.refresh(user)
     return user

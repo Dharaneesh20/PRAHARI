@@ -3,10 +3,13 @@ from typing import Literal, List
 from app.models.user import User
 from fastapi import APIRouter, Depends, Query
 from app.dependencies import get_current_user
+from app.core.db import get_auth_db
+from app.models.operational import IncidentRecord, PatrolUnitRecord
 from app.models.kpi import KPISummary, TrendPoint, Hotspot, HotspotCoords
 from app.database import get_db
 import app.services.ml_service as ml_service
 from datetime import datetime, timedelta, timezone
+from sqlalchemy.orm import Session
 
 router = APIRouter()
 
@@ -15,23 +18,42 @@ def _day_label(days_ago: int) -> str:
     return d.strftime("%b %d")
 
 
+def _as_aware(dt: datetime) -> datetime:
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
 @router.get("/summary", response_model=KPISummary, summary="Top-level KPI metrics")
 async def get_kpi_summary(
     range_val: Literal["today", "7d", "30d"] = Query("7d", alias="range"),
     current_user: User = Depends(get_current_user),
-    db=Depends(get_db),
+    db: Session = Depends(get_auth_db),
 ):
     """Returns KPI summary metrics for the dashboard."""
+    incidents = db.query(IncidentRecord).all()
+    units = db.query(PatrolUnitRecord).all()
+    now = datetime.now(timezone.utc)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    active_statuses = {"new", "dispatched", "in-progress"}
+    active_cases = sum(1 for incident in incidents if incident.status in active_statuses)
+    closed_cases = sum(1 for incident in incidents if incident.status == "resolved")
+    alerts_today = sum(1 for incident in incidents if _as_aware(incident.timestamp) >= today_start)
+    response_values = [unit.avg_response_time for unit in units if unit.avg_response_time is not None]
+    on_duty = sum(1 for unit in units if unit.status != "off-duty")
+    off_duty = sum(1 for unit in units if unit.status == "off-duty")
+    total_cases = len(incidents)
+    clearance_rate = (closed_cases / total_cases * 100) if total_cases else 0
     return {
-        "totalActiveCases": 14,
-        "openCases": 14,
-        "closedCases": 6,
-        "alertsToday": 7,
-        "avgResponseTime": 8.6,
-        "clearanceRate": 72.4,
-        "clearanceRateTrend": 3.2,
-        "onDutyUnits": 11,
-        "offDutyUnits": 1,
+        "totalActiveCases": active_cases,
+        "openCases": active_cases,
+        "closedCases": closed_cases,
+        "alertsToday": alerts_today,
+        "avgResponseTime": round(sum(response_values) / len(response_values), 1) if response_values else 0,
+        "clearanceRate": round(clearance_rate, 1),
+        "clearanceRateTrend": 0,
+        "onDutyUnits": on_duty,
+        "offDutyUnits": off_duty,
     }
 
 
@@ -39,23 +61,29 @@ async def get_kpi_summary(
 async def get_kpi_trend(
     range_val: Literal["today", "7d", "30d"] = Query("7d", alias="range"),
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_auth_db),
 ):
     """Returns daily incident counts for trend chart rendering."""
+    incidents = db.query(IncidentRecord).all()
+    now = datetime.now(timezone.utc)
     if range_val == "today":
-        return [{"date": "00:00", "value": 2}, {"date": "06:00", "value": 4},
-                {"date": "12:00", "value": 3}, {"date": "18:00", "value": 5}]
-    if range_val == "30d":
-        return [{"date": _day_label(i), "value": 5 + (i % 7)} for i in range(30, 0, -1)]
-    # 7d default
-    return [
-        {"date": _day_label(6), "value": 8},
-        {"date": _day_label(5), "value": 11},
-        {"date": _day_label(4), "value": 9},
-        {"date": _day_label(3), "value": 14},
-        {"date": _day_label(2), "value": 10},
-        {"date": _day_label(1), "value": 13},
-        {"date": _day_label(0), "value": 7},
-    ]
+        buckets = [(0, 6), (6, 12), (12, 18), (18, 24)]
+        return [
+            {
+                "date": f"{start:02d}:00",
+                "value": sum(1 for incident in incidents if _as_aware(incident.timestamp).date() == now.date() and start <= _as_aware(incident.timestamp).hour < end),
+            }
+            for start, end in buckets
+        ]
+    days = 30 if range_val == "30d" else 7
+    points = []
+    for days_ago in range(days - 1, -1, -1):
+        day = (now - timedelta(days=days_ago)).date()
+        points.append({
+            "date": _day_label(days_ago),
+            "value": sum(1 for incident in incidents if _as_aware(incident.timestamp).date() == day),
+        })
+    return points
 
 
 @router.get("/hotspots", response_model=List[Hotspot], summary="Top crime hotspots")

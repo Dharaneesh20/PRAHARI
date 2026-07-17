@@ -2,21 +2,20 @@ import { useState, useEffect } from "react";
 import { PlayCircle, Plus, Trash2, Edit2, ShieldAlert, X } from "lucide-react";
 import GlassCard from "../components/GlassCard";
 import type { UserProfile } from "../lib/types";
-import { getToken } from "../lib/api";
+import { admin, type AdminUserPayload } from "../lib/api";
 
-const BASE_URL = (import.meta.env.VITE_API_URL as string) || "http://localhost:8000";
+const emptyUserForm: AdminUserPayload & { password: string } = {
+  name: "", badgeId: "", rank: "", station: "", role: "", email: "", phone: "", clearance_level: 1, password: ""
+};
 
 export default function AdminPanel() {
   const [users, setUsers] = useState<UserProfile[]>([]);
-  const [pipelineStatus, setPipelineStatus] = useState<any>(null);
+  const [pipelineStatus, setPipelineStatus] = useState<{ is_running: boolean; current_step?: string; logs?: string[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newUser, setNewUser] = useState({
-    name: "", badgeId: "", rank: "", station: "", role: "", email: "", phone: "", clearance_level: 1, password: ""
-  });
-
-  const token = getToken();
+  const [editingBadgeId, setEditingBadgeId] = useState<string | null>(null);
+  const [userForm, setUserForm] = useState(emptyUserForm);
 
   useEffect(() => {
     fetchUsers();
@@ -27,14 +26,11 @@ export default function AdminPanel() {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch(`${BASE_URL}/admin/users`, {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-      if (!res.ok) throw new Error("Failed to fetch users or unauthorized");
-      const data = await res.json();
+      const data = await admin.users();
       setUsers(data);
-    } catch (err: any) {
-      setError(err.message);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch users or unauthorized");
     } finally {
       setLoading(false);
     }
@@ -42,10 +38,7 @@ export default function AdminPanel() {
 
   const checkPipeline = async () => {
     try {
-      const res = await fetch(`${BASE_URL}/admin/pipeline-status`, {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-      if (res.ok) setPipelineStatus(await res.json());
+      setPipelineStatus(await admin.pipelineStatus());
     } catch (e) {
       console.error(e);
     }
@@ -53,11 +46,7 @@ export default function AdminPanel() {
 
   const runPipeline = async () => {
     try {
-      const res = await fetch(`${BASE_URL}/admin/run-pipeline`, {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-      const data = await res.json();
+      const data = await admin.runPipeline();
       alert(data.message);
       checkPipeline();
     } catch (e) {
@@ -68,38 +57,54 @@ export default function AdminPanel() {
   const handleDelete = async (badgeId: string) => {
     if (!confirm(`Are you sure you want to delete ${badgeId}?`)) return;
     try {
-      const res = await fetch(`${BASE_URL}/admin/users/${badgeId}`, {
-        method: "DELETE",
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-      if (res.ok) fetchUsers();
-      else alert("Failed to delete user.");
-    } catch (e) {
-      alert("Failed to delete user.");
+      await admin.deleteUser(badgeId);
+      fetchUsers();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to delete user.");
     }
   };
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const openCreate = () => {
+    setEditingBadgeId(null);
+    setUserForm(emptyUserForm);
+    setIsModalOpen(true);
+  };
+
+  const openEdit = (user: UserProfile) => {
+    setEditingBadgeId(user.badgeId);
+    setUserForm({
+      name: user.name,
+      badgeId: user.badgeId,
+      rank: user.rank,
+      station: user.station,
+      role: user.role,
+      email: user.email || "",
+      phone: user.phone || "",
+      clearance_level: user.clearance_level,
+      password: "",
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch(`${BASE_URL}/admin/users`, {
-        method: "POST",
-        headers: { 
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(newUser)
-      });
-      if (res.ok) {
-        fetchUsers();
-        setIsModalOpen(false);
-        setNewUser({ name: "", badgeId: "", rank: "", station: "", role: "", email: "", phone: "", clearance_level: 1, password: "" });
+      const payload = {
+        ...userForm,
+        email: userForm.email.trim(),
+        phone: userForm.phone.trim(),
+      };
+      if (editingBadgeId) {
+        await admin.updateUser(editingBadgeId, payload);
       } else {
-        const err = await res.json();
-        alert(err.detail || "Failed to create user");
+        await admin.createUser(payload);
       }
-    } catch (e) {
-      alert("Failed to create user.");
+      fetchUsers();
+      setIsModalOpen(false);
+      setUserForm(emptyUserForm);
+      setEditingBadgeId(null);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to save user.");
     }
   };
 
@@ -151,7 +156,7 @@ export default function AdminPanel() {
           subtitle={`${users.length} registered users`}
           action={
             <button 
-              onClick={() => setIsModalOpen(true)}
+              onClick={openCreate}
               className="bg-green-600 hover:bg-green-500 p-2 rounded-full transition"
             >
               <Plus className="w-5 h-5 text-white" />
@@ -166,7 +171,7 @@ export default function AdminPanel() {
                   <p className="text-xs text-gray-400">{u.rank} • Lvl {u.clearance_level} • {u.role}</p>
                 </div>
                 <div className="flex gap-2">
-                  <button className="p-2 hover:bg-white/20 rounded transition text-blue-300"><Edit2 className="w-4 h-4" /></button>
+                  <button onClick={() => openEdit(u)} className="p-2 hover:bg-white/20 rounded transition text-blue-300"><Edit2 className="w-4 h-4" /></button>
                   <button onClick={() => handleDelete(u.badgeId)} className="p-2 hover:bg-red-500/30 text-red-400 rounded transition"><Trash2 className="w-4 h-4" /></button>
                 </div>
               </div>
@@ -181,49 +186,60 @@ export default function AdminPanel() {
             <button onClick={() => setIsModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white">
               <X className="w-6 h-6" />
             </button>
-            <h2 className="text-xl font-bold mb-4 text-blue-400">Create New User</h2>
+            <h2 className="text-xl font-bold mb-4 text-blue-400">{editingBadgeId ? "Edit User" : "Create New User"}</h2>
             
-            <form onSubmit={handleCreate} className="flex flex-col gap-4">
+            <form onSubmit={handleSave} className="flex flex-col gap-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs text-gray-400 mb-1">Full Name</label>
-                  <input required value={newUser.name} onChange={e => setNewUser({...newUser, name: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded p-2 text-sm focus:outline-none focus:border-blue-500" placeholder="e.g. John Doe" />
+                  <input required value={userForm.name} onChange={e => setUserForm({...userForm, name: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded p-2 text-sm focus:outline-none focus:border-blue-500" placeholder="e.g. John Doe" />
                 </div>
                 <div>
                   <label className="block text-xs text-gray-400 mb-1">Badge ID</label>
-                  <input required value={newUser.badgeId} onChange={e => setNewUser({...newUser, badgeId: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded p-2 text-sm focus:outline-none focus:border-blue-500" placeholder="e.g. KSP-1234" />
+                  <input required disabled={!!editingBadgeId} value={userForm.badgeId} onChange={e => setUserForm({...userForm, badgeId: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded p-2 text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50" placeholder="e.g. KSP-1234" />
                 </div>
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs text-gray-400 mb-1">Rank</label>
-                  <input required value={newUser.rank} onChange={e => setNewUser({...newUser, rank: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded p-2 text-sm focus:outline-none focus:border-blue-500" placeholder="e.g. Inspector" />
+                  <input required value={userForm.rank} onChange={e => setUserForm({...userForm, rank: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded p-2 text-sm focus:outline-none focus:border-blue-500" placeholder="e.g. Inspector" />
                 </div>
                 <div>
                   <label className="block text-xs text-gray-400 mb-1">Station</label>
-                  <input required value={newUser.station} onChange={e => setNewUser({...newUser, station: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded p-2 text-sm focus:outline-none focus:border-blue-500" placeholder="e.g. Central HQ" />
+                  <input required value={userForm.station} onChange={e => setUserForm({...userForm, station: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded p-2 text-sm focus:outline-none focus:border-blue-500" placeholder="e.g. Central HQ" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs text-gray-400 mb-1">Role</label>
-                  <input required value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded p-2 text-sm focus:outline-none focus:border-blue-500" placeholder="e.g. Investigator" />
+                  <input required value={userForm.role} onChange={e => setUserForm({...userForm, role: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded p-2 text-sm focus:outline-none focus:border-blue-500" placeholder="e.g. Investigator" />
                 </div>
                 <div>
                   <label className="block text-xs text-gray-400 mb-1">Clearance Level (1-3)</label>
-                  <input required type="number" min="1" max="3" value={newUser.clearance_level} onChange={e => setNewUser({...newUser, clearance_level: parseInt(e.target.value)})} className="w-full bg-white/5 border border-white/10 rounded p-2 text-sm focus:outline-none focus:border-blue-500" />
+                  <input required type="number" min="1" max="3" value={userForm.clearance_level} onChange={e => setUserForm({...userForm, clearance_level: parseInt(e.target.value)})} className="w-full bg-white/5 border border-white/10 rounded p-2 text-sm focus:outline-none focus:border-blue-500" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Email</label>
+                  <input type="email" value={userForm.email} onChange={e => setUserForm({...userForm, email: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded p-2 text-sm focus:outline-none focus:border-blue-500" placeholder="optional" />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Phone</label>
+                  <input value={userForm.phone} onChange={e => setUserForm({...userForm, phone: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded p-2 text-sm focus:outline-none focus:border-blue-500" placeholder="optional" />
                 </div>
               </div>
               
               <div>
                 <label className="block text-xs text-gray-400 mb-1">Password</label>
-                <input required type="password" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded p-2 text-sm focus:outline-none focus:border-blue-500" placeholder="Enter secure password" />
+                <input required={!editingBadgeId} type="password" value={userForm.password} onChange={e => setUserForm({...userForm, password: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded p-2 text-sm focus:outline-none focus:border-blue-500" placeholder={editingBadgeId ? "Leave blank to keep current password" : "Enter secure password"} />
               </div>
 
               <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded font-bold transition mt-4">
-                Create User
+                {editingBadgeId ? "Save Changes" : "Create User"}
               </button>
             </form>
           </div>

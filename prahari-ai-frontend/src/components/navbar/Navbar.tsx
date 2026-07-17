@@ -1,7 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Bell, Sun, Moon, Monitor, Menu, MapPin } from "lucide-react";
+import { Search, Bell, Sun, Moon, Monitor, Menu, Trash2 } from "lucide-react";
 import { useTheme } from "../theme-provider";
+import { useNavigate } from "react-router-dom";
+import { auth, notifications } from "../../lib/api";
+import type { NotificationItem } from "../../lib/types";
+import { useAppContext } from "../../context/AppContext";
 
 type ThemeOption = "light" | "dark" | "system";
 
@@ -40,8 +44,22 @@ function LiveClock() {
 
 export default function Navbar({ onMenuClick }: { onMenuClick?: () => void }) {
   const { theme, setTheme } = useTheme();
-  const [notifCount] = useState(3);
+  const { profile, setProfile, t } = useAppContext();
+  const navigate = useNavigate();
+  const [notifCount, setNotifCount] = useState(0);
+  const [notificationList, setNotificationList] = useState<NotificationItem[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
   const pillRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    Promise.all([auth.session(), notifications.unreadCount(), notifications.list()])
+      .then(([user, unread, items]) => {
+        setProfile(user);
+        setNotifCount(unread.count);
+        setNotificationList(items);
+      })
+      .catch(() => {});
+  }, [setProfile]);
 
   const handleThemeChange = (newTheme: ThemeOption) => {
     if (!pillRef.current) { setTheme(newTheme); return; }
@@ -152,13 +170,14 @@ export default function Navbar({ onMenuClick }: { onMenuClick?: () => void }) {
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
+          onClick={() => navigate("/settings?section=notifications")}
           className="relative p-2 rounded-xl transition-all hidden sm:block"
           style={{
             background: "rgba(255,255,255,0.06)",
             border: "1px solid rgba(255,255,255,0.09)",
             color: "rgba(255,255,255,0.6)",
           }}
-          aria-label="Notifications"
+          aria-label={t("openNotifications")}
         >
           <Bell className="w-4 h-4" />
           {notifCount > 0 && (
@@ -173,12 +192,65 @@ export default function Navbar({ onMenuClick }: { onMenuClick?: () => void }) {
             />
           )}
         </motion.button>
+        <AnimatePresence>
+          {showNotifications && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className="absolute right-16 top-14 w-80 rounded-xl overflow-hidden"
+              style={{ background: "rgba(10,14,26,0.96)", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 18px 45px rgba(0,0,0,0.35)" }}
+            >
+              <div className="p-3 text-xs font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.4)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                {t("notifications")}
+              </div>
+              <div className="max-h-80 overflow-y-auto">
+                {notificationList.length === 0 ? (
+                  <div className="p-4 text-sm" style={{ color: "rgba(255,255,255,0.45)" }}>{t("noNotifications")}</div>
+                ) : notificationList.map(item => (
+                  <div
+                    key={item.id}
+                    className="flex items-start gap-2 p-3"
+                    style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: item.read ? "transparent" : "rgba(201,162,39,0.08)" }}
+                  >
+                    <button
+                      onClick={async () => {
+                        if (!item.read) {
+                          const updated = await notifications.markRead(item.id);
+                          setNotificationList(list => list.map(n => n.id === item.id ? updated : n));
+                          setNotifCount(count => Math.max(0, count - 1));
+                        }
+                      }}
+                      className="flex-1 text-left"
+                    >
+                      <p className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>{item.title}</p>
+                      <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.5)" }}>{item.message}</p>
+                    </button>
+                    <button
+                      title="Delete notification"
+                      onClick={async () => {
+                        await notifications.delete(item.id);
+                        setNotificationList(list => list.filter(n => n.id !== item.id));
+                        if (!item.read) setNotifCount(count => Math.max(0, count - 1));
+                      }}
+                      className="p-1.5 rounded-lg hover:bg-white/10"
+                      style={{ color: "rgba(255,255,255,0.45)" }}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <div className="w-px h-5 hidden sm:block" style={{ background: "rgba(255,255,255,0.1)" }} />
 
         {/* ── Profile avatar ── */}
         <motion.button
           whileHover={{ scale: 1.04 }}
+          onClick={() => navigate("/settings")}
           className="flex items-center gap-2.5 hover:opacity-90 transition-opacity"
           aria-label="Profile"
         >
@@ -189,7 +261,7 @@ export default function Navbar({ onMenuClick }: { onMenuClick?: () => void }) {
               boxShadow: "0 0 0 2px rgba(201,162,39,0.5), 0 0 10px rgba(201,162,39,0.2)",
             }}
           >
-            IR
+            {profile?.name.split(" ").map((part: string) => part[0]).join("").slice(0, 2) || "--"}
           </div>
         </motion.button>
       </div>
