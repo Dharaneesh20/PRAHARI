@@ -77,6 +77,7 @@ def apply_scope_filter(con, sql: str, role: str, scope_id: int | None) -> str:
     dist_name = ctx["DistrictName"]
     dist_id = ctx["DistrictID"]
     unit_id = ctx["UnitID"]
+    unit_name = ctx["UnitName"]
 
     # 2. Define the table-to-filter mapping
     # Maps each whitelisted table to its replacement subquery text based on the role
@@ -85,7 +86,7 @@ def apply_scope_filter(con, sql: str, role: str, scope_id: int | None) -> str:
     if role == "SP":
         mappings = {
             "CaseMaster": f"(SELECT * FROM CaseMaster WHERE PoliceStationID IN (SELECT UnitID FROM Unit WHERE DistrictID = {dist_id}))",
-            "CaseMaster_Wide": f"(SELECT * FROM CaseMaster_Wide WHERE PoliceStationID IN (SELECT UnitID FROM Unit WHERE DistrictID = {dist_id}))",
+            "CaseMaster_Wide": f"(SELECT * FROM CaseMaster_Wide WHERE LOWER(DistrictName) = LOWER('{dist_name}'))",
             "fact_crime_agg": f"(SELECT * FROM fact_crime_agg WHERE LOWER(DistrictName) = LOWER('{dist_name}'))",
             "fact_crime_geo": f"(SELECT * FROM fact_crime_geo WHERE LOWER(DistrictName) = LOWER('{dist_name}'))",
             "fact_crime_monthly": f"(SELECT * FROM fact_crime_monthly WHERE LOWER(DistrictName) = LOWER('{dist_name}'))",
@@ -102,11 +103,14 @@ def apply_scope_filter(con, sql: str, role: str, scope_id: int | None) -> str:
             "Victim": f"(SELECT * FROM Victim WHERE CaseMasterID IN (SELECT CaseMasterID FROM CaseMaster WHERE PoliceStationID IN (SELECT UnitID FROM Unit WHERE DistrictID = {dist_id})))",
             "Unit": f"(SELECT * FROM Unit WHERE DistrictID = {dist_id})",
             "District": f"(SELECT * FROM District WHERE DistrictID = {dist_id})",
+            "Employee": f"(SELECT * FROM Employee WHERE DistrictID = {dist_id})",
+            "Court": f"(SELECT * FROM Court WHERE DistrictID = {dist_id})",
+            "ActSectionAssociation": f"(SELECT * FROM ActSectionAssociation WHERE CaseMasterID IN (SELECT CaseMasterID FROM CaseMaster WHERE PoliceStationID IN (SELECT UnitID FROM Unit WHERE DistrictID = {dist_id})))",
         }
     elif role == "SHO":
         mappings = {
             "CaseMaster": f"(SELECT * FROM CaseMaster WHERE PoliceStationID = {unit_id})",
-            "CaseMaster_Wide": f"(SELECT * FROM CaseMaster_Wide WHERE PoliceStationID = {unit_id})",
+            "CaseMaster_Wide": f"(SELECT * FROM CaseMaster_Wide WHERE LOWER(UnitName) = LOWER('{unit_name}'))",
             # Precomputed tables are district-level; resolve UnitID -> DistrictID (dist_name)
             "fact_crime_agg": f"(SELECT * FROM fact_crime_agg WHERE LOWER(DistrictName) = LOWER('{dist_name}'))",
             "fact_crime_geo": f"(SELECT * FROM fact_crime_geo WHERE LOWER(DistrictName) = LOWER('{dist_name}'))",
@@ -125,6 +129,9 @@ def apply_scope_filter(con, sql: str, role: str, scope_id: int | None) -> str:
             "Victim": f"(SELECT * FROM Victim WHERE CaseMasterID IN (SELECT CaseMasterID FROM CaseMaster WHERE PoliceStationID = {unit_id}))",
             "Unit": f"(SELECT * FROM Unit WHERE UnitID = {unit_id})",
             "District": f"(SELECT * FROM District WHERE DistrictID = {dist_id})",
+            "Employee": f"(SELECT * FROM Employee WHERE UnitID = {unit_id})",
+            "Court": f"(SELECT * FROM Court WHERE DistrictID = {dist_id})",
+            "ActSectionAssociation": f"(SELECT * FROM ActSectionAssociation WHERE CaseMasterID IN (SELECT CaseMasterID FROM CaseMaster WHERE PoliceStationID = {unit_id}))",
         }
 
     # 3. Apply the replacements using word-boundary matching preceded by FROM or JOIN

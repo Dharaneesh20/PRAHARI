@@ -1,13 +1,15 @@
-Real gap: Employee isn't in either mapping dict. Employee has DistrictID/UnitID columns directly, and it's presumably whitelisted for the SQL agent (it's how "which officer registered this case" gets answered). But it's missing from both mappings_sp and mappings_sho — so a query that touches Employee directly (not via the already-scoped CaseMaster_Wide join) would return the entire statewide officer roster to an SHO or SP, unscoped. This is the same category of gap as the missing District column on hotspot_clusters you caught earlier — it won't show up until someone asks a question that happens to hit it, and then it silently leaks. Add it the same way you did Accused: Employee WHERE UnitID = {unit_id} for SHO, WHERE DistrictID = {dist_id} for SP. Court has the same gap (has DistrictID) — lower stakes since it's not personal data, but scope it too for consistency.
-Untested: the exact edge case the original spec called out as "the trickiest part." You tested SHO for the volume question and SP for hotspot/network, but never SHO specifically for a network question — which is the one case requiring the Unit→District resolution step for NetworkSummary (a district-level table) before filtering. That resolution logic is the part most likely to have a bug (wrong join direction, off-by-one on which ID gets resolved), and it's currently unverified. Run "who are the most connected repeat offenders" as an SHO (not SP) and confirm it correctly resolves their Unit to its parent District before scoping — this is worth 30 seconds and it's the one path explicitly flagged as risky up front.
-Worth a quick explicit check, not necessarily a bug: table-name collision in the regex rewriter. CaseMaster and CaseMaster_Wide share a prefix — if the regex uses proper \b word boundaries (which it should, since _ is a word character so \bCaseMaster\b correctly won't match inside CaseMaster_Wide), you're fine. But given this exact class of bug (substring/prefix collision) has bitten you before in this project, I'd run one query that joins CaseMaster_Wide as an SP and eyeball the executed SQL to confirm it got the CaseMaster_Wide mapping and not a mangled partial substitution from the CaseMaster pattern.
-Fix the Employee/Court gap, run the SHO-network test, and eyeball one CaseMaster_Wide query — then this is genuinely done. Everything else (the fail-safe subquery design, audit log capturing role+scope_id, the SCRB_ADMIN bypass) is correct as built.
-
-
-Short list, in order of risk:
-
-Employee & Court tables — missing from both scope dicts, currently leak statewide. Fix required.
-SHO + network question — untested. The Unit→District resolution for NetworkSummary is unverified; this was flagged as the trickiest part.
-CaseMaster vs CaseMaster_Wide collision — eyeball one executed SQL as SP to confirm the regex didn't mangle it.
-Any other table with District/Unit columns not yet in the dict — grep your whitelist against both mapping dicts to catch anything else missed (same pattern as Employee/Court).
-NULL scope_id enforcement — confirm SHO/SP truly get rejected if scope_id is missing (you said it's implemented, just re-confirm with an actual bad-input test, not just code review).
+1. Record yourself (or a friend) actually speaking 3-5 Kannada questions
+   naturally — not reading robotically, normal pace, real phone/laptop mic,
+   some background noise if possible (a real deployment environment won't
+   be silent).
+2. Feed each through the /chat/voice endpoint exactly as a real user would.
+3. Record actual WER and semantic accuracy against what was really said
+   (not what Sarvam's own TTS generated).
+4. Update the benchmark table in the writeup with these real numbers,
+   labeled clearly as "real speech test" vs the earlier "pipeline
+   round-trip test" — keep both, don't discard the round-trip one, just
+   don't let it stand in as if it were the real-world number.
+5. If accuracy is meaningfully lower on real speech (expected), decide
+   now whether that's acceptable for demo or needs a fallback (e.g.
+   "type your question in Kannada" as a backup input mode) rather than
+   discovering it live.

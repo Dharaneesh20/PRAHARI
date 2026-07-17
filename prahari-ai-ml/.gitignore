@@ -27,3 +27,19 @@ build/
 
 # Logs
 *.log
+
+# Auto-generated ML Pipeline Outputs
+outputs/hotspot_clusters_*.parquet
+outputs/fact_crime_monthly.parquet
+outputs/hotspot_model_benchmark.csv
+outputs/trend_forecast_next_month.csv
+outputs/trend_model_benchmark.csv
+outputs/hotspots_bengaluru_city.parquet
+outputs/nl2sql_audit_log.jsonl
+
+# Duplicate root outputs
+fact_crime_monthly.parquet
+hotspot_clusters_*.parquet
+hotspot_model_benchmark.csv
+trend_forecast_next_month.csv
+trend_model_benchmark.csv

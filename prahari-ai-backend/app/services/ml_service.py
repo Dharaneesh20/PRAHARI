@@ -274,12 +274,12 @@ def get_forecast_benchmarks(con, district: str, crime_group: str) -> dict:
     return {"status": "success", "district": district, "crime_group": crime_group, "benchmark_scorecard": rows}
 
 
-def run_nl2sql(con, question: str, role: str, scope_id: int | None = None, clearance_level: int = 1) -> dict:
+def run_nl2sql(con, question: str, role: str, scope_id: int | None = None, clearance_level: int = 1, session_id: str | None = None) -> dict:
     if con is None:
         return _unavailable({"question": question, "route": "other", "sql": "", "rows_returned": 0, "data": [], "answer": "ML database is not connected."})
     try:
         from step5_nl2sql_agent import answer_question, get_schema_context  # type: ignore
-        result = answer_question(con, question, get_schema_context(con), role, scope_id, clearance_level)
+        result = answer_question(con, question, get_schema_context(con), role, scope_id, clearance_level, session_id=session_id)
         df = result.get("result_df")
         data = df.to_dict(orient="records") if df is not None else []
         if result.get("error"):
@@ -291,3 +291,36 @@ def run_nl2sql(con, question: str, role: str, scope_id: int | None = None, clear
     except Exception as exc:
         logger.exception("NL2SQL error for question: %s", question)
         return {"status": "error", "question": question, "route": "other", "sql": "", "rows_returned": 0, "data": [], "answer": f"An error occurred: {exc}"}
+
+
+def run_voice_nl2sql(con, audio_bytes: bytes, role: str, scope_id: int | None = None, output_language: str = "kn-IN", session_id: str | None = None) -> dict:
+    if con is None:
+        return {
+            "transcript": "",
+            "detected_language": "kn-IN",
+            "answer_text": "ML database is not connected.",
+            "audio_response": "",
+            "audit_id": None,
+            "error": "ML database is not connected."
+        }
+    try:
+        from step5_nl2sql_agent import answer_question_voice  # type: ignore
+        result = answer_question_voice(con, audio_bytes, role, scope_id, output_language, session_id=session_id)
+        return {
+            "transcript": result.get("transcript", ""),
+            "detected_language": result.get("detected_language", "kn-IN"),
+            "answer_text": result.get("answer_text", ""),
+            "audio_response": result.get("audio_response", ""),
+            "audit_id": result.get("audit_id"),
+            "error": result.get("error")
+        }
+    except Exception as exc:
+        logger.warning("Voice NL2SQL execution failed: %s", exc)
+        return {
+            "transcript": "",
+            "detected_language": "kn-IN",
+            "answer_text": f"Voice service failure: {str(exc)}",
+            "audio_response": "",
+            "audit_id": None,
+            "error": str(exc)
+        }

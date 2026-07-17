@@ -7,38 +7,35 @@ This repository contains the complete end-to-end data pipeline, relational schem
 ## 1. Directory Structure
 
 ```text
-karnataka-fir-datathon/
-│
-├── data/
-│   ├── raw/               # Raw Kaggle source files
-│   │   └── FIR_Details_Data.csv (572 MB - Input)
-│   └── processed/         # Intermediate cached data and parquets
-│       ├── fir_step1_geo.parquet
-│       ├── _fir_with_ids.parquet
-│       └── _long_act_sections.parquet
+prahari-ai-ml/
 │
 ├── db/
 │   └── karnataka_fir.duckdb # Complete SQLite/DuckDB relational database file
 │
-├── pipeline/              # ETL pipeline steps (1-5)
+├── pipeline/              # ETL pipeline steps & analytics modules
 │   ├── step1_geo_imputation.py
 │   ├── step2_lookup_tables.py
 │   ├── step2b_case_master.py
 │   ├── step3_pii_synthesis.py
-│   ├── step4_feature_engineering.py
-│   └── step5_nl2sql_agent.py
+│   ├── step4_feature_engineering.py   # Aggregation & network mapping
+│   ├── step4b_network_summary.py      # Louvain community precomputation
+│   ├── step5_nl2sql_agent.py          # Groq agent + logging + voice wrapper
+│   ├── step6_trend_hotspot_module.py  # Trend forecasting & DBSCAN hotspots
+│   ├── step7_test_suite.py            # Complete 75-assertion validation suite
+│   ├── rbac.py                        # Jurisdiction query rewriter
+│   ├── graph_agent.py                 # Co-accused network helper agent
+│   ├── voice_service.py               # Sarvam AI STT/TTS and translate interface
+│   └── pdf_export.py                  # ReportLab conversation PDF compiler
 │
-├── outputs/               # Generated reports, CSVs, parquets, graphs, and audit logs
-│   ├── dashboard_wide_aggregated.csv
-│   ├── dashboard_wide_aggregated.parquet
-│   ├── dashboard_geo_real_only.csv
-│   ├── dashboard_geo_real_only.parquet
-│   ├── coaccused_bengaluru_city.graphml
-│   ├── hotspots_bengaluru_city.parquet
-│   └── nl2sql_audit_log.jsonl
+├── outputs/               # Persistent database references and assets
+│   ├── dashboard_wide_aggregated.csv  # Loaded by load_fact_tables()
+│   ├── dashboard_geo_real_only.csv    # Loaded by load_fact_tables()
+│   ├── coaccused_bengaluru_city.graphml # Coaccused network graph
+│   └── nl2sql_audit_log.jsonl         # Agent JSON log history
 │
-├── .env                   # API keys and environment configurations (e.g. GROQ_API_KEY)
-└── requirements.txt       # Project python dependencies
+├── .env                   # Groq & Sarvam API keys
+├── requirements.txt       # Project python dependencies
+└── change_log.md          # Clear log of all pipeline & backend changes
 ```
 
 ---
@@ -128,12 +125,39 @@ graph TD
     X --> Ans[English Answer]
 ```
 
-### Components
+Components
 1. **Router**: Classifies questions into routes (`volume_trend`, `hotspot_geo`, `comparison`, `network_repeat_offender`, `lookup_detail`, `other`) to provide hints to the query generator.
 2. **Generator**: Combines the dynamic schema context, the Business Glossary, and route hints to produce read-only DuckDB SQL.
 3. **Validator**: Enforces read-only syntax, blocks DDL/DML keywords (e.g. `DROP`, `DELETE`), filters tables against a strict whitelist, and strips function-level `FROM` clauses (e.g. `EXTRACT(field FROM source)`) to prevent alias parsing errors.
 4. **Executor**: Runs the query against the local DuckDB database.
 5. **Explainer**: Translates SQL tables into plain English and highlights synthetic caveats for location and offender demographics.
+
+---
+
+## 6b. Jurisdiction Scoping (RBAC)
+To prevent unauthorized data access, the agent integrates role-based scoping (`rbac.py`):
+* **SHO**: Automatically restricted to cases originating from their Police Station (`UnitID`).
+* **SP**: Restricted to cases within their parent District (`DistrictID`).
+* **SCRB_ADMIN**: State-wide unscoped access.
+* **SQL Query Rewriting**: Before execution, queries are intercepted. Standard cases and join chains are dynamically injected with matching `WHERE` filters (e.g., matching parent district links for tables lacking direct columns like Court or Employee). The LLM never sees or overrides these limits.
+
+---
+
+## 6c. Kannada Voice Input & Output System
+The pipeline supports native Kannada voice operations in `voice_service.py` via **Sarvam AI**:
+* **Speech-to-Text (Saaras v3)**: Transcribes incoming Kannada/English voice queries and detects language.
+* **Translation**: Uses Sarvam Translate to convert native Kannada transcripts to English for SQL query generation.
+* **Speech Synthesis (Bulbul v3)**: Translates the English agent response to Kannada and speaks it using the expressive neural speaker voice `ritu`.
+
+---
+
+## 6d. PDF Audit History Compiler
+Conversational logs can be exported directly to ReportLab PDFs in `pdf_export.py`:
+* **Chronological Report**: Shows questions, route metrics, and response timestamps.
+* **Formatted SQL Boxes**: Renders executed SQL statements in light-grey code boxes using courier fonts.
+* **Verbatim Disclosures**: Automatically identifies and renders synthetic network/data provenance disclaimers verbatim in italic styling.
+* **Metadata Footers**: Renders a bottom line detailing the Page number and the `Role` / `Scope ID` under which the session was run.
+
 
 ---
 
@@ -214,9 +238,10 @@ pip install -r requirements.txt
 ```
 
 ### Step 2: Populate Environment
-Create a `.env` file in the root directory and add your Groq API key:
+Create a `.env` file in the project root and add your API keys:
 ```text
 GROQ_API_KEY=your_groq_api_key_here
+SARVAM_API_KEY=your_sarvam_api_key_here
 ```
 
 ### Step 3: Execute Pipeline Scripts in Order
@@ -241,10 +266,23 @@ GROQ_API_KEY=your_groq_api_key_here
    ```powershell
    python pipeline/step4_feature_engineering.py
    ```
-6. **Natural Language NL2SQL Agent**:
+6. **Co-Accused Network Summary (Louvain Communities)**:
+   ```powershell
+   python pipeline/step4b_network_summary.py
+   ```
+7. **Trend & Hotspot Forecasting Model Selection**:
+   ```powershell
+   python pipeline/step6_trend_hotspot_module.py
+   ```
+8. **Natural Language NL2SQL Agent**:
    ```powershell
    python pipeline/step5_nl2sql_agent.py
    ```
+9. **Regression Validation Test Suite**:
+   ```powershell
+   python pipeline/step7_test_suite.py
+   ```
+
 
 ---
 
@@ -282,4 +320,10 @@ During testing and verification of the NL2SQL agent, several critical database-L
 ### 4. Groq API rate-limit and Cloudflare block recoveries
 * **The Issue**: The script hit a Cloudflare 403 block (code 1010) on urllib requests due to lack of a User-Agent header, and also encountered TPM (Tokens Per Minute) limit issues on free-tier keys.
 * **The Fix**: Added standard browser User-Agent headers to all API requests, and inserted a `time.sleep(6.0)` delay in the test questions loop to prevent rate limiting.
+
+### 5. Concurrent Voice Session Logging Race Conditions
+* **The Issue**: When multiple users issued voice requests concurrently, logging metrics (such as changing `input_mode` from text to voice and saving the `detected_language`) were written using a `SELECT MAX(audit_id) FROM AgentAuditLog` update query. Under near-simultaneous requests, logs got overwritten with wrong attribution, resulting in data leakage.
+* **The Fix**: Replaced the sequential update with an atomic `INSERT INTO ... RETURNING audit_id` DuckDB query. This captures the auto-incremented primary key inside the database insertion transaction, allowing the agent to target that explicit `audit_id` directly for the subsequent metadata update.
+
+---
 

@@ -16,7 +16,9 @@ This document defines the REST API specification for the **Karnataka FIR Datatho
 | **Offenders Networks** | [`/api/v1/offenders/coaccused-network`](#/api/v1/offenders/coaccused-network) | `GET` | Graph structures (nodes/edges) for co-accused networks. |
 | **Trend & Forecasting**| [`/api/v1/crime/forecast`](#/api/v1/crime/forecast) | `GET` | Time-series forecasting for specific crime groups. |
 | **Trend & Forecasting**| [`/api/v1/crime/forecast/benchmarks`](#/api/v1/crime/forecast/benchmarks) | `GET` | Model selection scores (SARIMA vs. Holt-Winters vs. XGBoost). |
-| **Natural Language** | [`/api/v1/search/nl2sql`](#/api/v1/search/nl2sql) | `POST` | LLM-powered natural language querying engine. |
+| **Natural Language** | [`/api/v1/search/nl2sql`](#/api/v1/search/nl2sql) | `POST` | LLM-powered natural language querying engine with RBAC. |
+| **Natural Language** | [`/api/v1/chat/voice`](#/api/v1/chat/voice) | `POST` | Voice-to-voice query analytics endpoint (STT, translation, TTS). |
+| **Natural Language** | [`/api/v1/export/{session_id}`](#/api/v1/export/session_id) | `GET` | Export conversation history to ReportLab PDF report. |
 
 ---
 
@@ -315,18 +317,29 @@ Provides comparative benchmark indicators for trend models evaluated against the
 
 ---
 
-## 5. Natural Language Agent Endpoint (ONGOING)
+## 5. Natural Language Agent Endpoint
 
 ### `POST /api/v1/search/nl2sql`
-Processes natural language questions, translates them into validated SQL, executes them against DuckDB, and returns structured data alongside plain-English insights.
+Processes natural language questions, translates them into validated SQL, executes them against DuckDB under RBAC scope filters, and returns structured data alongside plain-English insights.
 
 #### Request Body
 * `Content-Type: application/json`
 ```json
 {
-  "question": "Compare chargesheet rates between Bengaluru City and Mysuru City for 2022."
+  "question": "Compare chargesheet rates between Bengaluru City and Mysuru City for 2022.",
+  "role": "SP",
+  "scope_id": 5,
+  "session_id": "test-session-uuid-12345"
 }
 ```
+
+#### Request Parameters
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `question` | `string` | Yes | The natural language question (in English). |
+| `role` | `string` | Yes | User role for jurisdiction scoping: `SHO`, `SP`, or `SCRB_ADMIN`. |
+| `scope_id` | `integer` | No | Target UnitID (for `SHO`) or DistrictID (for `SP`). Required if role is SHO/SP. |
+| `session_id` | `string` | No | Chat session ID string to group logs together. If missing, a new session ID is generated and returned. |
 
 #### Response Sample (`200 OK`)
 ```json
@@ -340,6 +353,55 @@ Processes natural language questions, translates them into validated SQL, execut
     { "DistrictName": "Bengaluru City", "chargesheet_rate": 0.57164 },
     { "DistrictName": "Mysuru City", "chargesheet_rate": 0.59302 }
   ],
-  "answer": "The chargesheet rate in Bengaluru City was 57.16% in 2022, compared to 59.30% in Mysuru City. This means that out of all cases, nearly 57 out of 100 in Bengaluru City and 59 out of 100 in Mysuru City resulted in a chargesheet. Mysuru City had a slightly higher chargesheet rate, with a difference of about 2.1 percentage points."
+  "answer": "The chargesheet rate in Bengaluru City was 57.16% in 2022, compared to 59.30% in Mysuru City. This means that out of all cases, nearly 57 out of 100 in Bengaluru City and 59 out of 100 in Mysuru City resulted in a chargesheet. Mysuru City had a slightly higher chargesheet rate, with a difference of about 2.1 percentage points.",
+  "session_id": "test-session-uuid-12345",
+  "audit_id": 42
 }
 ```
+
+---
+
+### `POST /api/v1/chat/voice`
+Voice-to-voice query analytics endpoint. Accepts Kannada/English voice query audio uploads, transcribes and translates it, scopes it via RBAC, executes it on the NL2SQL agent, translates the text answer back to Kannada (or requested output language), and speaks the response using natural neural TTS.
+
+#### Request Body
+* `Content-Type: multipart/form-data`
+
+#### Multipart Form Parameters
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `file` | `file (binary)` | Yes | Raw audio upload file stream (PCM/WAV/MP3). |
+| `role` | `string` | Yes | User authorization role: `SHO`, `SP`, or `SCRB_ADMIN`. |
+| `scope_id` | `integer` | No | Scope ID (UnitID for `SHO`, DistrictID for `SP`). Required if role is SHO/SP. |
+| `output_language` | `string` | No | Target output voice language (e.g. `kn-IN` for Kannada, `en-IN` for English). Default `kn-IN`. |
+| `session_id` | `string` | No | Chat session ID string to group logs together. |
+
+#### Response Sample (`200 OK`)
+```json
+{
+  "transcript": "ಅಪರಾಧದ ಹಾಟ್‌ಸ್ಪಾಟ್‌ಗಳು ಎಲ್ಲೆಲ್ಲಿವೆ?",
+  "detected_language": "kn-IN",
+  "answer_text": "The hotspots of crime in Bengaluru City are concentrated around coordinates (12.95, 77.61)...",
+  "audio_response": "//T1R0R2h0dHBzOi8vc2FydmFt...",
+  "audit_id": 43,
+  "error": null
+}
+```
+
+---
+
+### `GET /api/v1/export/{session_id}`
+Compiles and exports the complete conversation/audit history linked to `session_id` into a beautifully formatted, print-ready PDF document.
+
+#### Path Parameters
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `session_id` | `string` | Yes | The session ID of the conversation to export. |
+
+#### Response Headers
+* `Content-Type: application/pdf`
+* `Content-Disposition: attachment; filename=conversation_report_{session_id}.pdf`
+
+#### Response Content
+* Binary PDF file stream.
+

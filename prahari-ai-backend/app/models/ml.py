@@ -172,13 +172,13 @@ class NL2SQLRequest(BaseModel):
     question: str
     role: str
     scope_id: Optional[int] = None
-    session_id: Optional[int] = None
+    session_id: Optional[str] = None
 
 
 class NL2SQLResponse(BaseModel):
     status: str
     question: str
-    session_id: Optional[int] = None
+    session_id: Optional[str] = None
     route: str
     sql: str
     rows_returned: int
