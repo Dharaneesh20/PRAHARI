@@ -210,8 +210,11 @@ async def nl2sql(
     if not body.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
         
+    if body.role in ["SHO", "SP"] and body.scope_id is None:
+        raise HTTPException(status_code=400, detail=f"scope_id is required when role is {body.role}.")
+        
     clearance_level = current_user.clearance_level
-    result = ml_service.run_nl2sql(db, body.question, clearance_level=clearance_level)
+    result = ml_service.run_nl2sql(db, body.question, body.role, body.scope_id, clearance_level=clearance_level)
     
     # Check if this is a general greeting or non-sql
     if result.get("route") == "greeting" or result.get("route") == "conversational":

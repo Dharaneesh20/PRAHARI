@@ -274,12 +274,12 @@ def get_forecast_benchmarks(con, district: str, crime_group: str) -> dict:
     return {"status": "success", "district": district, "crime_group": crime_group, "benchmark_scorecard": rows}
 
 
-def run_nl2sql(con, question: str, clearance_level: int = 1) -> dict:
+def run_nl2sql(con, question: str, role: str, scope_id: int | None = None, clearance_level: int = 1) -> dict:
     if con is None:
         return _unavailable({"question": question, "route": "other", "sql": "", "rows_returned": 0, "data": [], "answer": "ML database is not connected."})
     try:
         from step5_nl2sql_agent import answer_question, get_schema_context  # type: ignore
-        result = answer_question(con, question, get_schema_context(con), clearance_level)
+        result = answer_question(con, question, get_schema_context(con), role, scope_id, clearance_level)
         df = result.get("result_df")
         data = df.to_dict(orient="records") if df is not None else []
         if result.get("error"):

@@ -249,7 +249,16 @@ def load_fact_tables(con):
     con.execute(f"CREATE OR REPLACE TABLE fact_crime_agg AS SELECT * FROM read_csv_auto('{WIDE_AGG_CSV}')")
     con.execute(f"CREATE OR REPLACE TABLE fact_crime_geo AS SELECT * FROM read_csv_auto('{GEO_REAL_ONLY_CSV}')")
     
-    # Initialize the AgentAuditLog table and sequence in DuckDB
+    # Check if AgentAuditLog needs schema upgrade
+    try:
+        cols = con.execute("DESCRIBE AgentAuditLog").fetchdf()["column_name"].tolist()
+        if "role" not in cols:
+            con.execute("DROP TABLE IF EXISTS AgentAuditLog;")
+            con.execute("DROP SEQUENCE IF EXISTS audit_id_seq;")
+    except Exception:
+        pass
+
+    # Initialize the AgentAuditLog table and sequence in DuckDB with RBAC columns
     con.execute("CREATE SEQUENCE IF NOT EXISTS audit_id_seq;")
     con.execute("""
     CREATE TABLE IF NOT EXISTS AgentAuditLog (
@@ -260,7 +269,9 @@ def load_fact_tables(con):
         generated_sql VARCHAR,
         model_used VARCHAR,
         row_count_returned INTEGER,
-        final_answer VARCHAR
+        final_answer VARCHAR,
+        role VARCHAR,
+        scope_id INTEGER
     );
     """)
 
@@ -435,28 +446,30 @@ def explain_result(question: str, sql: str, df: pd.DataFrame, route: str) -> str
 # ======================================================================
 # Audit log
 # ======================================================================
-def log_audit(con, question, route, sql, row_count, error, elapsed_s, repaired=False, model_used=None, final_answer=None):
+def log_audit(con, question, route, sql, row_count, error, elapsed_s, repaired=False, model_used=None, final_answer=None, role=None, scope_id=None):
     entry = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "question": question, "route": route, "sql": sql,
         "row_count": row_count, "error": error, "elapsed_s": round(elapsed_s, 2),
         "repaired": repaired,
+        "role": role,
+        "scope_id": scope_id
     }
     with open(AUDIT_LOG_PATH, "a") as f:
         f.write(json.dumps(entry) + "\n")
         
     # DuckDB audit table logging
     insert_sql = """
-    INSERT INTO AgentAuditLog (timestamp, question, route_taken, generated_sql, model_used, row_count_returned, final_answer)
-    VALUES (NOW(), ?, ?, ?, ?, ?, ?)
+    INSERT INTO AgentAuditLog (timestamp, question, route_taken, generated_sql, model_used, row_count_returned, final_answer, role, scope_id)
+    VALUES (NOW(), ?, ?, ?, ?, ?, ?, ?, ?)
     """
     try:
-        con.execute(insert_sql, [question, route, sql, model_used, row_count, final_answer])
+        con.execute(insert_sql, [question, route, sql, model_used, row_count, final_answer, role, scope_id])
     except Exception as e:
         # Gracefully handle missing audit log table by initializing and retrying once
         try:
             load_fact_tables(con)
-            con.execute(insert_sql, [question, route, sql, model_used, row_count, final_answer])
+            con.execute(insert_sql, [question, route, sql, model_used, row_count, final_answer, role, scope_id])
         except Exception as inner_e:
             print(f"Failed to insert audit log in DuckDB: {inner_e}")
     return entry
@@ -500,14 +513,24 @@ Output ONLY the corrected SQL query. No markdown fences, no explanation.
     return re.sub(r"^```sql\s*|\s*```$", "", sql, flags=re.IGNORECASE | re.MULTILINE).strip()
 
 
-def answer_question(con, question: str, schema_context: str, clearance_level: int = 1, max_repair_attempts: int = 1) -> dict:
+def answer_question(con, question: str, schema_context: str, role: str, scope_id: int | None = None, clearance_level: int = 1, max_repair_attempts: int = 1) -> dict:
     t0 = time.time()
+    
+    # Validation check: reject if SHO/SP but scope_id is missing
+    if role in ["SHO", "SP"] and scope_id is None:
+        err_msg = f"scope_id is required for role: {role}"
+        log_audit(con, question, "other", sql="", row_count=0, error=err_msg, 
+                  elapsed_s=0, role=role, scope_id=scope_id)
+        return {"question": question, "route": "other", "sql": "", "error": err_msg,
+                "answer": None, "result_df": None, "repaired": False}
+                
     route = route_question(question)
     
     if route == "conversational":
         answer = "Hello! I am PRAHARI AI. I am here to assist you with analyzing crime data, tracking hotspots, identifying repeat offenders, and running predictive models. How can I help you today?"
         log_audit(con, question, route, sql="", row_count=0, error=None, 
-                  elapsed_s=time.time() - t0, repaired=False, model_used="ConversationalRule", final_answer=answer)
+                  elapsed_s=time.time() - t0, repaired=False, model_used="ConversationalRule", 
+                  final_answer=answer, role=role, scope_id=scope_id)
         return {"question": question, "route": route, "sql": "", "error": None,
                 "answer": answer, "result_df": None, "repaired": False}
                 
@@ -533,10 +556,11 @@ def answer_question(con, question: str, schema_context: str, clearance_level: in
                 if pipeline_path not in sys.path:
                     sys.path.insert(0, pipeline_path)
                 import graph_agent
-                res = graph_agent.find_associates(con, person_id)
+                res = graph_agent.find_associates(con, person_id, role, scope_id)
                 answer = res["message"]
                 log_audit(con, question, route, sql="", row_count=len(res["data"]), error=None, 
-                          elapsed_s=time.time() - t0, repaired=False, model_used="graph_agent/NetworkX", final_answer=answer)
+                          elapsed_s=time.time() - t0, repaired=False, model_used="graph_agent/NetworkX", 
+                          final_answer=answer, role=role, scope_id=scope_id)
                 return {"question": question, "route": route, "sql": "", "error": None,
                         "answer": answer, "result_df": pd.DataFrame(res["data"]) if res["data"] else None, "repaired": False}
             except Exception as graph_err:
@@ -558,16 +582,21 @@ def answer_question(con, question: str, schema_context: str, clearance_level: in
                 if pipeline_path not in sys.path:
                     sys.path.insert(0, pipeline_path)
                 import graph_agent
-                res = graph_agent.find_most_connected(con, district_name)
+                res = graph_agent.find_most_connected(con, district_name, 5, role, scope_id)
                 answer = res["message"]
                 log_audit(con, question, route, sql="", row_count=len(res["data"]), error=None, 
-                          elapsed_s=time.time() - t0, repaired=False, model_used="graph_agent/NetworkSummary", final_answer=answer)
+                          elapsed_s=time.time() - t0, repaired=False, model_used="graph_agent/NetworkSummary", 
+                          final_answer=answer, role=role, scope_id=scope_id)
                 return {"question": question, "route": route, "sql": "", "error": None,
                         "answer": answer, "result_df": pd.DataFrame(res["data"]) if res["data"] else None, "repaired": False}
             except Exception as graph_err:
                 print(f"Graph agent find_most_connected failed: {graph_err}. Falling back to LLM SQL.")
 
     sql = generate_sql(question, route, schema_context, clearance_level)
+    
+    # Apply RBAC Scope Filter on the generated SQL query
+    from rbac import apply_scope_filter
+    sql = apply_scope_filter(con, sql, role, scope_id)
 
     attempts = 0
     while True:
@@ -580,12 +609,14 @@ def answer_question(con, question: str, schema_context: str, clearance_level: in
         if err is None:
             break  # success
         if attempts >= max_repair_attempts:
-            log_audit(con, question, route, sql, None, err, time.time() - t0, repaired=attempts > 0, model_used=MODEL, final_answer=None)
+            log_audit(con, question, route, sql, None, err, time.time() - t0, repaired=attempts > 0, 
+                      model_used=MODEL, final_answer=None, role=role, scope_id=scope_id)
             return {"question": question, "route": route, "sql": sql, "error": err,
                     "answer": None, "repaired": attempts > 0}
 
         attempts += 1
         sql = repair_sql(question, sql, err, schema_context, route)
+        sql = apply_scope_filter(con, sql, role, scope_id)
 
     # Automatically extract model used from DuckDB result if applicable
     model_used = MODEL
@@ -596,7 +627,8 @@ def answer_question(con, question: str, schema_context: str, clearance_level: in
             model_used = str(df["Model"].iloc[0])
 
     answer = explain_result(question, sql, df, route)
-    log_audit(con, question, route, sql, len(df), None, time.time() - t0, repaired=attempts > 0, model_used=model_used, final_answer=answer)
+    log_audit(con, question, route, sql, len(df), None, time.time() - t0, repaired=attempts > 0, 
+              model_used=model_used, final_answer=answer, role=role, scope_id=scope_id)
     return {"question": question, "route": route, "sql": sql, "error": None,
             "answer": answer, "result_df": df, "repaired": attempts > 0}
 
@@ -616,7 +648,7 @@ if __name__ == "__main__":
     ]
     for q in test_questions:
         print(f"\nQ: {q}")
-        result = answer_question(con, q, schema_context)
+        result = answer_question(con, q, schema_context, role="SCRB_ADMIN")
         repair_note = " [SELF-REPAIRED]" if result.get("repaired") else ""
         if result["error"]:
             print(f"  ERROR (after repair attempt): {result['error']}\n  SQL: {result['sql']}")

@@ -14,13 +14,15 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(BASE_DIR, "db", "karnataka_fir.duckdb")
 OUTPUTS_DIR = os.path.join(BASE_DIR, "outputs")
 
+from rbac import apply_scope_filter
+
 def get_disclaimer(synthetic_flag: bool) -> str:
     """Constructs the synthetic disclosure notice dynamically based on the data flag."""
     if synthetic_flag:
         return "\n\n*(Disclosure: This criminal network profile and co-accused connection map is synthetically generated for demonstration purposes and does not represent real criminal records.)*"
     return ""
 
-def find_most_connected(con, district: str, top_n: int = 5) -> dict:
+def find_most_connected(con, district: str, top_n: int = 5, role: str = None, scope_id: int = None) -> dict:
     """
     Queries NetworkSummary directly to find the most connected repeat offenders in a district.
     Does not load or traverse the raw GraphML file, ensuring fast performance.
@@ -37,7 +39,8 @@ def find_most_connected(con, district: str, top_n: int = 5) -> dict:
     LIMIT ?
     """
     try:
-        df = con.execute(sql, [district, top_n]).fetchdf()
+        sql_to_run = apply_scope_filter(con, sql, role, scope_id)
+        df = con.execute(sql_to_run, [district, top_n]).fetchdf()
         if df.empty:
             return {
                 "status": "success",
@@ -72,7 +75,7 @@ def find_most_connected(con, district: str, top_n: int = 5) -> dict:
             "disclaimer": ""
         }
 
-def find_associates(con, person_id: int) -> dict:
+def find_associates(con, person_id: int, role: str = None, scope_id: int = None) -> dict:
     """
     Locates the target person's district via NetworkSummary, loads the raw GraphML file on demand,
     and returns their direct co-accused neighbors.
@@ -85,7 +88,8 @@ def find_associates(con, person_id: int) -> dict:
     LIMIT 1
     """
     try:
-        df = con.execute(sql, [person_id]).fetchdf()
+        sql_to_run = apply_scope_filter(con, sql, role, scope_id)
+        df = con.execute(sql_to_run, [person_id]).fetchdf()
         if df.empty:
             return {
                 "status": "success",
