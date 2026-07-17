@@ -60,6 +60,7 @@ WHITELISTED_TABLES = {
     "ChargesheetDetails", "fact_crime_agg", "fact_crime_geo",
     "fact_crime_monthly", "trend_forecast", "trend_model_benchmark",
     "hotspot_model_benchmark", "hotspot_clusters", "hotspot_summary",
+    "NetworkSummary",
 }
 
 FORBIDDEN_KEYWORDS = re.compile(
@@ -114,6 +115,18 @@ BUSINESS GLOSSARY (Karnataka Police FIR data):
   finding about real individuals. Always caveat any "repeat offender" answer as
   demonstrating the platform's tracking capability on synthetic data, not a real
   criminal record.
+
+- Precomputed Network Summary: The `NetworkSummary` table stores precomputed criminal
+  co-accused network metrics:
+  * `RepeatPoolID`: The repeat offender's pool ID (links to Accused.RepeatPoolID).
+  * `DistrictName`: Mapped district name (e.g. 'Bengaluru City').
+  * `ConnectionCount`: Node degree (number of distinct co-accused connections).
+  * `NetworkClusterID`: Louvain community partition ID (identifies the syndicate cluster).
+  * `ClusterSize`: Total number of repeat offenders in that Louvain community.
+  * `SyntheticNetworkFlag`: Boolean, always `TRUE` (every connection is synthetic).
+  Guidance: For any repeat offender ranking, connection counts, or cluster sizes, query
+  `NetworkSummary` directly instead of querying Accused. If names are needed, join `NetworkSummary`
+  with `Accused` on `RepeatPoolID`.
 
 - Location / geo-provenance: CaseMaster.Latitude/Longitude come from TWO sources.
   ~30% are real FIR coordinates; ~70% are synthetically imputed (jittered around
@@ -235,6 +248,21 @@ def load_fact_tables(con):
     = real-coordinate cases only)."""
     con.execute(f"CREATE OR REPLACE TABLE fact_crime_agg AS SELECT * FROM read_csv_auto('{WIDE_AGG_CSV}')")
     con.execute(f"CREATE OR REPLACE TABLE fact_crime_geo AS SELECT * FROM read_csv_auto('{GEO_REAL_ONLY_CSV}')")
+    
+    # Initialize the AgentAuditLog table and sequence in DuckDB
+    con.execute("CREATE SEQUENCE IF NOT EXISTS audit_id_seq;")
+    con.execute("""
+    CREATE TABLE IF NOT EXISTS AgentAuditLog (
+        audit_id INTEGER DEFAULT nextval('audit_id_seq') PRIMARY KEY,
+        timestamp TIMESTAMP DEFAULT NOW(),
+        question VARCHAR,
+        route_taken VARCHAR,
+        generated_sql VARCHAR,
+        model_used VARCHAR,
+        row_count_returned INTEGER,
+        final_answer VARCHAR
+    );
+    """)
 
 
 # ======================================================================
@@ -275,9 +303,10 @@ ROUTE_HINTS = {
                    "always surface both). Only drop to raw `hotspot_clusters` for individual-case "
                    "lookups. Otherwise fall back to fact_crime_geo if the district isn't covered. "
                    "Never use raw CaseMaster.Latitude/Longitude directly.",
-    "network_repeat_offender": "This is a repeat-offender/network question. Use Accused.IsRepeatOffender "
-                                "and Accused.RepeatPoolID. Remember this data is synthetic. Use LIKE, not "
-                                "exact match, for any general crime-type name (see glossary).",
+    "network_repeat_offender": "This is a repeat-offender/network question. Use `NetworkSummary` for ranking "
+                                "or connection counts (join with `Accused` on `RepeatPoolID` for names). "
+                                "Always include `SyntheticNetworkFlag` in the select clause. "
+                                "Remember this data is synthetic. Use LIKE, not exact match, for crime-type names.",
     "volume_trend": "This is a count/trend question. If it asks about direction/forecast/'is X rising', "
                      "use `trend_forecast` first (has TrendDirection, NextMonthForecast, "
                      "LowConfidence_ReviewFlag already computed). For historical counts/totals only, "
@@ -367,14 +396,23 @@ def execute_sql(con, sql: str) -> tuple[pd.DataFrame | None, str | None]:
 # ======================================================================
 def explain_result(question: str, sql: str, df: pd.DataFrame, route: str) -> str:
     preview = df.head(20).to_csv(index=False)
-    provenance_note = (
-        "\nIMPORTANT: mention that this location answer is backed by RealCoordCaseCount "
-        "real-coordinate cases (not all reported cases), if that column is present."
-        if route == "hotspot_geo" else
-        "\nIMPORTANT: mention that repeat-offender identities are synthetically generated "
-        "for demo purposes, not real criminal records."
-        if route == "network_repeat_offender" else ""
-    )
+    
+    is_synthetic = False
+    if df is not None and not df.empty and "SyntheticNetworkFlag" in df.columns:
+        is_synthetic = bool(df["SyntheticNetworkFlag"].iloc[0])
+        
+    provenance_note = ""
+    if route == "hotspot_geo":
+        provenance_note = (
+            "\nIMPORTANT: mention that this location answer is backed by RealCoordCaseCount "
+            "real-coordinate cases (not all reported cases), if that column is present."
+        )
+    elif is_synthetic or route == "network_repeat_offender":
+        provenance_note = (
+            "\nIMPORTANT: you MUST include this exact disclosure notice at the end of your response: "
+            "\"Disclosure: This criminal network profile and co-accused connection map is synthetically "
+            "generated for demonstration purposes and does not represent real criminal records.\""
+        )
     system = (
         "You explain SQL query results to a police analyst in plain English. "
         "Be concise (3-5 sentences), lead with the direct answer, cite specific numbers "
@@ -397,7 +435,7 @@ def explain_result(question: str, sql: str, df: pd.DataFrame, route: str) -> str
 # ======================================================================
 # Audit log
 # ======================================================================
-def log_audit(question, route, sql, row_count, error, elapsed_s, repaired=False):
+def log_audit(con, question, route, sql, row_count, error, elapsed_s, repaired=False, model_used=None, final_answer=None):
     entry = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "question": question, "route": route, "sql": sql,
@@ -406,6 +444,21 @@ def log_audit(question, route, sql, row_count, error, elapsed_s, repaired=False)
     }
     with open(AUDIT_LOG_PATH, "a") as f:
         f.write(json.dumps(entry) + "\n")
+        
+    # DuckDB audit table logging
+    insert_sql = """
+    INSERT INTO AgentAuditLog (timestamp, question, route_taken, generated_sql, model_used, row_count_returned, final_answer)
+    VALUES (NOW(), ?, ?, ?, ?, ?, ?)
+    """
+    try:
+        con.execute(insert_sql, [question, route, sql, model_used, row_count, final_answer])
+    except Exception as e:
+        # Gracefully handle missing audit log table by initializing and retrying once
+        try:
+            load_fact_tables(con)
+            con.execute(insert_sql, [question, route, sql, model_used, row_count, final_answer])
+        except Exception as inner_e:
+            print(f"Failed to insert audit log in DuckDB: {inner_e}")
     return entry
 
 
@@ -453,9 +506,67 @@ def answer_question(con, question: str, schema_context: str, clearance_level: in
     
     if route == "conversational":
         answer = "Hello! I am PRAHARI AI. I am here to assist you with analyzing crime data, tracking hotspots, identifying repeat offenders, and running predictive models. How can I help you today?"
+        log_audit(con, question, route, sql="", row_count=0, error=None, 
+                  elapsed_s=time.time() - t0, repaired=False, model_used="ConversationalRule", final_answer=answer)
         return {"question": question, "route": route, "sql": "", "error": None,
                 "answer": answer, "result_df": None, "repaired": False}
                 
+    # Check if network_repeat_offender has optimized helper shortcuts
+    if route == "network_repeat_offender":
+        # Look up real districts dynamically
+        try:
+            real_districts = con.execute("SELECT DISTINCT DistrictName FROM District").fetchdf()["DistrictName"].tolist()
+        except Exception:
+            real_districts = ["Bengaluru City", "Mysuru City", "Belagavi Dist", "Tumakuru", "Vijayapur"]
+            
+        # Parse for specific associates lookup: e.g. "known associates of ID" or "network around ID"
+        id_match = re.search(r'\b(?:associates of|network around|offender)\s*#?(\d+)\b', question, re.IGNORECASE)
+        if not id_match:
+            # Check if there is any 4 to 6 digit integer in the prompt (usually the repeat pool ID)
+            id_match = re.search(r'\b(\d{4,6})\b', question)
+            
+        if id_match:
+            person_id = int(id_match.group(1))
+            try:
+                import sys
+                pipeline_path = os.path.dirname(os.path.abspath(__file__))
+                if pipeline_path not in sys.path:
+                    sys.path.insert(0, pipeline_path)
+                import graph_agent
+                res = graph_agent.find_associates(con, person_id)
+                answer = res["message"]
+                log_audit(con, question, route, sql="", row_count=len(res["data"]), error=None, 
+                          elapsed_s=time.time() - t0, repaired=False, model_used="graph_agent/NetworkX", final_answer=answer)
+                return {"question": question, "route": route, "sql": "", "error": None,
+                        "answer": answer, "result_df": pd.DataFrame(res["data"]) if res["data"] else None, "repaired": False}
+            except Exception as graph_err:
+                print(f"Graph agent find_associates failed: {graph_err}. Falling back to LLM SQL.")
+                
+        # Parse for degree ranking/most connected lookup: e.g. "most connections" or "most connected"
+        if any(k in question.lower() for k in ["most connected", "most connections", "most criminal connections"]):
+            district_name = None
+            for dist in real_districts:
+                if dist.lower() in question.lower():
+                    district_name = dist
+                    break
+            if not district_name:
+                district_name = "Bengaluru City"  # Default fallback
+                
+            try:
+                import sys
+                pipeline_path = os.path.dirname(os.path.abspath(__file__))
+                if pipeline_path not in sys.path:
+                    sys.path.insert(0, pipeline_path)
+                import graph_agent
+                res = graph_agent.find_most_connected(con, district_name)
+                answer = res["message"]
+                log_audit(con, question, route, sql="", row_count=len(res["data"]), error=None, 
+                          elapsed_s=time.time() - t0, repaired=False, model_used="graph_agent/NetworkSummary", final_answer=answer)
+                return {"question": question, "route": route, "sql": "", "error": None,
+                        "answer": answer, "result_df": pd.DataFrame(res["data"]) if res["data"] else None, "repaired": False}
+            except Exception as graph_err:
+                print(f"Graph agent find_most_connected failed: {graph_err}. Falling back to LLM SQL.")
+
     sql = generate_sql(question, route, schema_context, clearance_level)
 
     attempts = 0
@@ -469,15 +580,23 @@ def answer_question(con, question: str, schema_context: str, clearance_level: in
         if err is None:
             break  # success
         if attempts >= max_repair_attempts:
-            log_audit(question, route, sql, None, err, time.time() - t0, repaired=attempts > 0)
+            log_audit(con, question, route, sql, None, err, time.time() - t0, repaired=attempts > 0, model_used=MODEL, final_answer=None)
             return {"question": question, "route": route, "sql": sql, "error": err,
                     "answer": None, "repaired": attempts > 0}
 
         attempts += 1
         sql = repair_sql(question, sql, err, schema_context, route)
 
+    # Automatically extract model used from DuckDB result if applicable
+    model_used = MODEL
+    if df is not None and not df.empty:
+        if "BestModel" in df.columns:
+            model_used = str(df["BestModel"].iloc[0])
+        elif "Model" in df.columns:
+            model_used = str(df["Model"].iloc[0])
+
     answer = explain_result(question, sql, df, route)
-    log_audit(question, route, sql, len(df), None, time.time() - t0, repaired=attempts > 0)
+    log_audit(con, question, route, sql, len(df), None, time.time() - t0, repaired=attempts > 0, model_used=model_used, final_answer=answer)
     return {"question": question, "route": route, "sql": sql, "error": None,
             "answer": answer, "result_df": df, "repaired": attempts > 0}
 

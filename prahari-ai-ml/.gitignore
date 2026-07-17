@@ -1,35 +1,29 @@
-# Python cache files
-__pycache__/
-*.py[cod]
-*$py.class
-
-# Virtual environments
+# Python
 venv/
 .venv/
 env/
-ENV/
+__pycache__/
+*.py[cod]
+*.egg-info/
 
-# Local configuration
+# Node
+node_modules/
+
+# Environment
 .env
+.env.*
 
-# Large raw and processed data files
-data/raw/FIR_Details_Data.csv
-data/processed/
-
-# DuckDB database files
-db/
-*.duckdb
-*.duckdb.tmp
-
-# Generated analytical outputs (parquets, CSVs, coaccused graphs, and logs)
-outputs/
-*.parquet
-*.csv
-*.graphml
-*.jsonl
-
-# IDE settings and system files
+# IDE
 .vscode/
 .idea/
+
+# OS
 .DS_Store
 Thumbs.db
+
+# Build
+dist/
+build/
+
+# Logs
+*.log

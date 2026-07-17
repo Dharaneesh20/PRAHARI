@@ -285,18 +285,52 @@ def test_nl2sql_agent_offline(con):
 
 
 # ======================================================================
+# 6. Criminal Network & Audit Logging (Step 4b, 5)
+# ======================================================================
+def test_criminal_network_and_audit(con):
+    print("\n[6] Criminal Network & Audit Logging")
+
+    ns_exists = con.execute("SELECT COUNT(*) FROM information_schema.tables WHERE table_name='NetworkSummary'").fetchone()[0]
+    check("NetworkSummary table exists", ns_exists > 0)
+    if ns_exists:
+        cols = con.execute("DESCRIBE NetworkSummary").fetchdf()["column_name"].tolist()
+        check("NetworkSummary has RepeatPoolID", "RepeatPoolID" in cols)
+        check("NetworkSummary has ConnectionCount", "ConnectionCount" in cols)
+        check("NetworkSummary has NetworkClusterID", "NetworkClusterID" in cols)
+        check("NetworkSummary has ClusterSize", "ClusterSize" in cols)
+        check("NetworkSummary has SyntheticNetworkFlag", "SyntheticNetworkFlag" in cols)
+
+        n_rows = con.execute("SELECT COUNT(*) FROM NetworkSummary").fetchone()[0]
+        check("NetworkSummary table is populated", n_rows > 0, f"got {n_rows} rows")
+
+    audit_exists = con.execute("SELECT COUNT(*) FROM information_schema.tables WHERE table_name='AgentAuditLog'").fetchone()[0]
+    check("AgentAuditLog table exists", audit_exists > 0)
+    if audit_exists:
+        cols = con.execute("DESCRIBE AgentAuditLog").fetchdf()["column_name"].tolist()
+        check("AgentAuditLog has audit_id", "audit_id" in cols)
+        check("AgentAuditLog has route_taken", "route_taken" in cols)
+        check("AgentAuditLog has model_used", "model_used" in cols)
+        check("AgentAuditLog has row_count_returned", "row_count_returned" in cols)
+        check("AgentAuditLog has final_answer", "final_answer" in cols)
+
+    import step5_nl2sql_agent as agent
+    ok, reason = agent.validate_sql("SELECT RepeatPoolID, ConnectionCount FROM NetworkSummary WHERE DistrictName = 'Bengaluru City' LIMIT 5")
+    check("NetworkSummary query is whitelisted in validator", ok, f"failed: {reason}")
+
+
+# ======================================================================
 if __name__ == "__main__":
     con = duckdb.connect(DB_PATH)
 
     # fact_crime_agg / fact_crime_geo are created from CSV by
     # step5_nl2sql_agent.load_fact_tables(), not persisted directly by
     # Step 4 — load them here, once, up front, so every section below can
-    # rely on them existing (this was previously only called inside
-    # test_nl2sql_agent_offline(), which ran LAST — sections [2]-[4] were
-    # checking for tables that hadn't been created yet).
+    # rely on them existing.
     import os
     os.environ.setdefault("GROQ_API_KEY", "dummy_key_for_offline_testing")
-    sys.path.insert(0, "/home/claude/work/pipeline")
+    pipeline_dir = os.path.join(BASE_DIR, "pipeline")
+    if pipeline_dir not in sys.path:
+        sys.path.insert(0, pipeline_dir)
     import step5_nl2sql_agent as agent
     agent.load_fact_tables(con)
 
@@ -305,6 +339,7 @@ if __name__ == "__main__":
     test_trend_forecasting(con)
     test_hotspot_detection(con)
     test_nl2sql_agent_offline(con)
+    test_criminal_network_and_audit(con)
 
     con.close()
 
