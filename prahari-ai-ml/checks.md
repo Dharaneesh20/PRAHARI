@@ -2,3 +2,12 @@ Real gap: Employee isn't in either mapping dict. Employee has DistrictID/UnitID 
 Untested: the exact edge case the original spec called out as "the trickiest part." You tested SHO for the volume question and SP for hotspot/network, but never SHO specifically for a network question — which is the one case requiring the Unit→District resolution step for NetworkSummary (a district-level table) before filtering. That resolution logic is the part most likely to have a bug (wrong join direction, off-by-one on which ID gets resolved), and it's currently unverified. Run "who are the most connected repeat offenders" as an SHO (not SP) and confirm it correctly resolves their Unit to its parent District before scoping — this is worth 30 seconds and it's the one path explicitly flagged as risky up front.
 Worth a quick explicit check, not necessarily a bug: table-name collision in the regex rewriter. CaseMaster and CaseMaster_Wide share a prefix — if the regex uses proper \b word boundaries (which it should, since _ is a word character so \bCaseMaster\b correctly won't match inside CaseMaster_Wide), you're fine. But given this exact class of bug (substring/prefix collision) has bitten you before in this project, I'd run one query that joins CaseMaster_Wide as an SP and eyeball the executed SQL to confirm it got the CaseMaster_Wide mapping and not a mangled partial substitution from the CaseMaster pattern.
 Fix the Employee/Court gap, run the SHO-network test, and eyeball one CaseMaster_Wide query — then this is genuinely done. Everything else (the fail-safe subquery design, audit log capturing role+scope_id, the SCRB_ADMIN bypass) is correct as built.
+
+
+Short list, in order of risk:
+
+Employee & Court tables — missing from both scope dicts, currently leak statewide. Fix required.
+SHO + network question — untested. The Unit→District resolution for NetworkSummary is unverified; this was flagged as the trickiest part.
+CaseMaster vs CaseMaster_Wide collision — eyeball one executed SQL as SP to confirm the regex didn't mangle it.
+Any other table with District/Unit columns not yet in the dict — grep your whitelist against both mapping dicts to catch anything else missed (same pattern as Employee/Court).
+NULL scope_id enforcement — confirm SHO/SP truly get rejected if scope_id is missing (you said it's implemented, just re-confirm with an actual bad-input test, not just code review).
