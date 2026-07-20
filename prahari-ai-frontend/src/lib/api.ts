@@ -36,7 +36,17 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || `HTTP ${res.status}`);
+    let msg = "HTTP " + res.status;
+    if (typeof err.detail === "string") {
+      msg = err.detail;
+    } else if (Array.isArray(err.detail)) {
+      msg = err.detail.map((d: any) => d.msg || JSON.stringify(d)).join("; ");
+    } else if (err.detail && typeof err.detail === "object") {
+      msg = JSON.stringify(err.detail);
+    } else if (err.message) {
+      msg = err.message;
+    }
+    throw new Error(msg);
   }
   return res.json() as Promise<T>;
 }
@@ -303,9 +313,86 @@ export const ml = {
   forecastBenchmarks: (district: string, crime_group: string) =>
     apiFetch<unknown>(`/api/v1/crime/forecast/benchmarks?district=${encodeURIComponent(district)}&crime_group=${encodeURIComponent(crime_group)}`),
 
-  nl2sql: (question: string) =>
-    apiFetch<{ status: string; question: string; route: string; sql: string; rows_returned: number; data: unknown[]; answer: string }>("/api/v1/search/nl2sql", {
+  exportPdf: async (sessionId: string | number) => {
+    const token = getToken();
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    const res = await fetch(`${BASE_URL}/api/v1/export/${sessionId}`, {
+      headers,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(typeof err.detail === "string" ? err.detail : "Failed to export PDF report");
+    }
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `conversation_report_${sessionId}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
+  nl2sqlStream: async (
+    question: string,
+    onToken: (token: string) => void,
+    onMeta?: (meta: { route: string; sql: string; rows: number }) => void,
+    onError?: (err: string) => void,
+    onThinking?: (thinkingToken: string) => void
+  ) => {
+    const token = getToken();
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    const res = await fetch(`${BASE_URL}/api/v1/search/nl2sql/stream`, {
       method: "POST",
-      body: JSON.stringify({ question }),
-    }),
+      headers,
+      body: JSON.stringify({ question, role: "SCRB_ADMIN" }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(typeof err.detail === "string" ? err.detail : "Failed to connect to stream");
+    }
+
+    const reader = res.body?.getReader();
+    if (!reader) throw new Error("Stream reader unavailable");
+
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith("data: ")) continue;
+        const jsonStr = trimmed.slice(6);
+
+        try {
+          const parsed = JSON.parse(jsonStr);
+          if (parsed.meta && onMeta) {
+            onMeta(parsed.meta);
+          } else if (parsed.thinking && onThinking) {
+            onThinking(parsed.thinking);
+          } else if (parsed.token) {
+            if (parsed.token === "[DONE]") break;
+            onToken(parsed.token);
+          } else if (parsed.error && onError) {
+            onError(parsed.error);
+          }
+        } catch {
+          // ignore chunk parse errors
+        }
+      }
+    }
+  },
 };

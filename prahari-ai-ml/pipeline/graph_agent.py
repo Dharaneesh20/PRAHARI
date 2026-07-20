@@ -52,13 +52,13 @@ def find_most_connected(con, district: str, top_n: int = 5, role: str = None, sc
         synthetic_flag = bool(df["SyntheticNetworkFlag"].iloc[0])
         records = df.to_dict(orient="records")
         
-        # Build plain-text summary
-        rows = []
+        # Build tabular summary
+        rows = ["| # | Accused Name | Repeat Pool ID | Co-Accused Links | Community Size |", "|---|--------------|----------------|------------------|----------------|"]
         for idx, r in enumerate(records, 1):
             name = r['AccusedName'] if r['AccusedName'] else f"Offender {r['RepeatPoolID']}"
-            rows.append(f"{idx}. **{name}** (ID: {r['RepeatPoolID']}) with **{r['ConnectionCount']}** co-accused links (Community size: {r['ClusterSize']})")
+            rows.append(f"| {idx} | **{name}** | `{r['RepeatPoolID']}` | **{r['ConnectionCount']}** | {r['ClusterSize']} |")
             
-        summary = f"The most connected repeat offenders in **{district}** are:\n" + "\n".join(rows)
+        summary = f"Most connected repeat offenders in **{district}**:\n\n" + "\n".join(rows)
         summary += get_disclaimer(synthetic_flag)
         
         return {
@@ -151,13 +151,13 @@ def find_associates(con, person_id: int, role: str = None, scope_id: int = None)
         # Sort associates: repeat offenders first
         associates.sort(key=lambda x: x["Type"], reverse=True)
         
-        # Build plain-text summary
-        rows = []
+        # Build tabular summary
+        rows = ["| Accused Name | Offender Type | Repeat Pool ID |", "|--------------|---------------|----------------|"]
         for a in associates:
-            pool_str = f" (Pool ID: {a['RepeatPoolID']})" if a['RepeatPoolID'] else ""
-            rows.append(f"- **{a['Name']}** [{a['Type']}{pool_str}]")
+            pool_str = f"`{a['RepeatPoolID']}`" if a['RepeatPoolID'] else "N/A"
+            rows.append(f"| **{a['Name']}** | {a['Type']} | {pool_str} |")
             
-        msg = f"Repeat offender **ID {person_id}** (active in **{district}**, Community ID: `{cluster_id}`) has **{len(associates)}** direct co-accused associates:\n" + "\n".join(rows)
+        msg = f"Repeat offender **ID {person_id}** (District: **{district}**, Cluster: `{cluster_id}`) direct associates ({len(associates)} links):\n\n" + "\n".join(rows)
         msg += get_disclaimer(synthetic_flag)
         
         return {

@@ -1,11 +1,21 @@
 """
 SSE Report Generator — streams AI-generated FIR/chargesheet draft tokens
-using the Groq LLM (same GROQ_API_KEY used by the NL2SQL agent).
+using multi-provider LLM fallback (NVIDIA API primary -> Groq -> Local).
 """
+import os
+import sys
 import logging
 from typing import AsyncGenerator
 
-from app.config import settings
+# Ensure ML pipeline directory is in sys.path for llm_client
+ml_pipeline_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "prahari-ai-ml", "pipeline"))
+if ml_pipeline_dir not in sys.path:
+    sys.path.insert(0, ml_pipeline_dir)
+
+try:
+    from llm_client import complete_chat
+except ImportError:
+    complete_chat = None
 
 logger = logging.getLogger(__name__)
 
@@ -15,15 +25,12 @@ async def stream_report_tokens(
     """
     Yields SSE-formatted strings: `data: {"token": "..."}\n\n`
     """
-    if not settings.GROQ_API_KEY:
-        yield 'data: {"token": "Report generation is unavailable because GROQ_API_KEY is not configured."}\n\n'
+    if not complete_chat:
+        yield 'data: {"token": "LLM client module is unavailable."}\n\n'
         yield 'data: {"token": "[DONE]"}\n\n'
         return
 
     try:
-        from groq import Groq  # type: ignore
-        client = Groq(api_key=settings.GROQ_API_KEY)
-
         system_prompt = (
             "You are an expert Karnataka State Police officer and legal document writer. "
             "Generate a professional, formal police report or FIR draft based on the given case details. "
@@ -37,23 +44,22 @@ async def stream_report_tokens(
             "Format as an official Karnataka Police document with proper sections."
         )
 
-        stream = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+        stream = complete_chat(
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user",   "content": user_prompt},
             ],
             stream=True,
-            max_tokens=1024,
+            max_tokens=2048,
             temperature=0.3,
         )
 
         for chunk in stream:
-            delta = chunk.choices[0].delta
-            if delta and delta.content:
-                # Escape double quotes and newlines for safe JSON embedding
-                token = delta.content.replace('"', '\\"').replace("\n", "\\n")
-                yield f'data: {{"token": "{token}"}}\n\n'
+            if hasattr(chunk, "choices") and chunk.choices:
+                delta = chunk.choices[0].delta
+                if delta and getattr(delta, "content", None):
+                    token = delta.content.replace('"', '\\"').replace("\n", "\\n")
+                    yield f'data: {{"token": "{token}"}}\n\n'
 
         yield 'data: {"token": "[DONE]"}\n\n'
 
@@ -61,3 +67,4 @@ async def stream_report_tokens(
         logger.exception("Report generation stream failed: %s", e)
         yield f'data: {{"token": "Error generating report: {str(e)}"}}\n\n'
         yield 'data: {"token": "[DONE]"}\n\n'
+

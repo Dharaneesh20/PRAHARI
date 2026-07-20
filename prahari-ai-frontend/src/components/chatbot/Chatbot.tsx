@@ -1,14 +1,54 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageSquare, X, Send, Bot, Sparkles, Loader2 } from "lucide-react";
+import { MessageSquare, X, Send, Bot, Sparkles, Loader2, Brain, ChevronDown, ChevronRight } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import { apiFetch } from "../../lib/api";
+import remarkGfm from "remark-gfm";
+import { apiFetch, ml } from "../../lib/api";
+
+function ThinkingBlock({ thinking, isStreaming }: { thinking?: string; isStreaming?: boolean }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  if (!thinking) return null;
+
+  return (
+    <div className="mb-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/30 overflow-hidden text-xs">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between px-2.5 py-1.5 text-slate-600 dark:text-white/70 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors font-mono text-left"
+      >
+        <div className="flex items-center gap-1.5">
+          <Brain className="w-3.5 h-3.5 text-blue-500" />
+          <span className="font-semibold text-slate-700 dark:text-white/80 text-[11px]">Thought process</span>
+          {isStreaming && (
+            <span className="inline-flex gap-1 items-center ml-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-ping" />
+            </span>
+          )}
+        </div>
+        {isOpen ? <ChevronDown className="w-3.5 h-3.5 opacity-60" /> : <ChevronRight className="w-3.5 h-3.5 opacity-60" />}
+      </button>
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="px-3 py-2 border-t border-slate-200 dark:border-white/5 bg-slate-100/50 dark:bg-black/40 font-mono text-slate-600 dark:text-white/60 whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto text-[10px]"
+          >
+            {thinking}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 function Chatbot() {
   const [isOpen, setIsOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [chat, setChat] = useState([
+  const [chat, setChat] = useState<{ sender: "user" | "bot"; text: string; thinking?: string }[]>([
     { sender: "bot", text: "Prahari AI operational. How can I assist you with crime data analytics today?" }
   ]);
 
@@ -16,20 +56,65 @@ function Chatbot() {
     e.preventDefault();
     if (!message.trim() || isLoading) return;
     
-    // 1. Show user message
     setChat((prev) => [...prev, { sender: "user", text: message }]);
     const currentMessage = message;
     setMessage("");
     setIsLoading(true);
 
+    let botIdx = -1;
+    setChat((prev) => {
+      botIdx = prev.length;
+      return [...prev, { sender: "bot", text: "", thinking: "" }];
+    });
+
     try {
-      const response = await apiFetch<any>("/api/v1/search/nl2sql", {
-        method: "POST",
-        body: JSON.stringify({ question: currentMessage }),
-      });
-      setChat((prev) => [...prev, { sender: "bot", text: response.answer || "I'm sorry, I couldn't process that query." }]);
+      let accum = "";
+      let accumThinking = "";
+      await ml.nl2sqlStream(
+        currentMessage,
+        (token) => {
+          accum += token;
+          setChat((prev) => {
+            const copy = [...prev];
+            if (copy[botIdx]) {
+              copy[botIdx] = { ...copy[botIdx], text: accum };
+            }
+            return copy;
+          });
+        },
+        undefined,
+        (err) => {
+          setChat((prev) => {
+            const copy = [...prev];
+            if (copy[botIdx]) {
+              copy[botIdx] = { ...copy[botIdx], text: `**Error:** ${err}` };
+            }
+            return copy;
+          });
+        },
+        (thinkingToken) => {
+          accumThinking += thinkingToken;
+          setChat((prev) => {
+            const copy = [...prev];
+            if (copy[botIdx]) {
+              copy[botIdx] = { ...copy[botIdx], thinking: accumThinking };
+            }
+            return copy;
+          });
+        }
+      );
     } catch (error: any) {
-      setChat((prev) => [...prev, { sender: "bot", text: `Error: ${error.message || "Failed to fetch AI response."}` }]);
+      const errMsg = typeof error === "string"
+        ? error
+        : (error?.message || (typeof error?.detail === "string" ? error.detail : JSON.stringify(error)));
+      setChat((prev) => {
+        const copy = [...prev];
+        if (botIdx !== -1 && copy[botIdx]) {
+          copy[botIdx] = { sender: "bot", text: `**Error:** ${errMsg || "Failed to fetch AI response."}` };
+          return copy;
+        }
+        return [...prev, { sender: "bot", text: `**Error:** ${errMsg || "Failed to fetch AI response."}` }];
+      });
     } finally {
       setIsLoading(false);
     }
@@ -86,22 +171,25 @@ function Chatbot() {
                       : "bg-white/80 dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.05] text-slate-700 dark:text-slate-200 rounded-bl-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]"
                   }`}>
                     {msg.sender === "bot" ? (
-                      <div className="prose prose-sm dark:prose-invert max-w-none">
-                        <ReactMarkdown>{msg.text}</ReactMarkdown>
-                      </div>
+                      <>
+                        <ThinkingBlock thinking={msg.thinking} isStreaming={isLoading && !msg.text} />
+                        {msg.text ? (
+                          <div className="prose prose-sm dark:prose-invert max-w-none prose-table:border-collapse prose-th:border prose-th:border-slate-300 dark:prose-th:border-white/20 prose-th:p-1.5 prose-td:border prose-td:border-slate-200 dark:prose-td:border-white/10 prose-td:p-1.5">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 text-slate-400 py-1">
+                            <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                            <span className="text-xs">Analyzing...</span>
+                          </div>
+                        )}
+                      </>
                     ) : (
                       msg.text
                     )}
                   </div>
                 </motion.div>
               ))}
-              {isLoading && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
-                  <div className="bg-white/80 dark:bg-white/[0.05] p-3 rounded-2xl border border-slate-200 dark:border-white/[0.05]">
-                    <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
-                  </div>
-                </motion.div>
-              )}
             </div>
 
             {/* Input Area */}

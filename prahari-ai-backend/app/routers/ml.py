@@ -7,6 +7,8 @@ from typing import List, Optional
 
 from app.models.user import User
 from fastapi import APIRouter, Depends, HTTPException, Query, File, UploadFile, Form, Response
+from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import StreamingResponse
 
 from app.dependencies import get_current_user
 from app.database import get_db
@@ -227,7 +229,7 @@ async def nl2sql(
         session_id = str(session_id)
 
     clearance_level = current_user.clearance_level
-    result = ml_service.run_nl2sql(db, body.question, body.role, body.scope_id, clearance_level=clearance_level, session_id=session_id)
+    result = await run_in_threadpool(ml_service.run_nl2sql, db, body.question, body.role, body.scope_id, clearance_level, session_id)
     
     # Check if this is a general greeting or non-sql
     if result.get("route") == "greeting" or result.get("route") == "conversational":
@@ -242,6 +244,37 @@ async def nl2sql(
     
     result["session_id"] = session_id
     return result
+
+
+@router.post(
+    "/search/nl2sql/stream",
+    summary="Natural language to SQL analytics query with real-time token streaming",
+)
+async def nl2sql_stream(
+    body: NL2SQLRequest,
+    current_user: User = Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """
+    Streams LLM token response in real-time using Server-Sent Events (SSE).
+    """
+    if not body.question.strip():
+        raise HTTPException(status_code=400, detail="Question cannot be empty.")
+        
+    clearance_level = current_user.clearance_level
+    session_id = body.session_id or "1"
+
+    return StreamingResponse(
+        ml_service.run_nl2sql_stream(
+            db,
+            body.question,
+            body.role,
+            body.scope_id,
+            clearance_level=clearance_level,
+            session_id=session_id
+        ),
+        media_type="text/event-stream"
+    )
 
 @router.get("/chat/sessions", summary="Get user chat history")
 async def get_chat_sessions(current_user: User = Depends(get_current_user), auth_db=Depends(get_auth_db)):
@@ -306,7 +339,9 @@ async def export_conversation(
         except ImportError:
             import os
             import sys
-            sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "pipeline"))
+            ml_pipeline_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "prahari-ai-ml", "pipeline"))
+            if ml_pipeline_dir not in sys.path:
+                sys.path.insert(0, ml_pipeline_dir)
             from pdf_export import export_conversation_pdf
 
         pdf_bytes = export_conversation_pdf(db, session_id)

@@ -87,6 +87,19 @@ _DEFAULT_USERS = [
         "station": "South Division HQ",
     },
     {
+        "badge_id": "KSP-ACP-4022",
+        "name": "ACP Meera Desai (Senior Officer)",
+        "email": "acp.south@ksp.gov.in",
+        "phone": "+91-94485-40220",
+        "hashed_password": _HASHED_PASSWORD,
+        "role": "Senior Officer",
+        "rank": "ACP",
+        "clearance_level": 2,
+        "department": "Karnataka State Police",
+        "district": "Bengaluru City",
+        "station": "ACP Command Office",
+    },
+    {
         "badge_id": "KSP-IGP-9999",
         "name": "IGP Prakash Rao",
         "email": "p.rao@ksp.gov.in",
@@ -122,14 +135,17 @@ def init_auth_db(db: Session) -> None:
     Base.metadata.create_all(bind=engine)
     _ensure_user_profile_columns()
     
-    # Check if the database is already seeded
-    user = db.query(User).first()
-    if not user:
-        logger.info("Seeding Auth Database with default users...")
-        for u in _DEFAULT_USERS:
+    # Ensure all demo users exist and have updated passwords
+    logger.info("Ensuring demo users exist in Auth Database...")
+    for u in _DEFAULT_USERS:
+        existing = db.query(User).filter(User.badge_id == u["badge_id"]).first()
+        if not existing:
             db_user = User(**u)
             db.add(db_user)
-        db.commit()
-        logger.info("Successfully seeded auth database.")
+        else:
+            existing.hashed_password = u["hashed_password"]
+            existing.clearance_level = u["clearance_level"]
+    db.commit()
+    logger.info("Successfully verified and seeded all demo users.")
 
     seed_operational_db(db)

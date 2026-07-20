@@ -170,7 +170,7 @@ class BenchmarkResponse(BaseModel):
 # ── NL2SQL ────────────────────────────────────────────────────────────────────
 class NL2SQLRequest(BaseModel):
     question: str
-    role: str
+    role: Optional[str] = "SCRB_ADMIN"
     scope_id: Optional[int] = None
     session_id: Optional[str] = None
 

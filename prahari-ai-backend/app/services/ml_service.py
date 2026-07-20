@@ -293,6 +293,45 @@ def run_nl2sql(con, question: str, role: str, scope_id: int | None = None, clear
         return {"status": "error", "question": question, "route": "other", "sql": "", "rows_returned": 0, "data": [], "answer": f"An error occurred: {exc}"}
 
 
+def run_nl2sql_stream(con, question: str, role: str, scope_id: int | None = None, clearance_level: int = 1, session_id: str | None = None):
+    if con is None:
+        import json
+        yield f'data: {json.dumps({"error": "ML database is not connected."})}\n\n'
+        yield 'data: {"token": "[DONE]"}\n\n'
+        return
+
+    try:
+        import json
+        from step5_nl2sql_agent import answer_question_stream  # type: ignore
+        for item in answer_question_stream(con, question, role=role, scope_id=scope_id, clearance_level=clearance_level, session_id=session_id):
+            if item.get("type") == "meta":
+                meta_json = json.dumps({
+                    "meta": {
+                        "route": item.get("route", ""),
+                        "sql": item.get("sql", ""),
+                        "rows": item.get("rows", 0)
+                    }
+                })
+                yield f'data: {meta_json}\n\n'
+            elif item.get("type") == "thinking":
+                thinking_json = json.dumps({"thinking": item.get("content", "")})
+                yield f'data: {thinking_json}\n\n'
+            elif item.get("type") == "token":
+                token_json = json.dumps({"token": item.get("content", "")})
+                yield f'data: {token_json}\n\n'
+            elif item.get("type") == "error":
+                err_json = json.dumps({"error": item.get("error", "Unknown error")})
+                yield f'data: {err_json}\n\n'
+
+        yield 'data: {"token": "[DONE]"}\n\n'
+    except Exception as exc:
+        logger.exception("Streaming NL2SQL error: %s", exc)
+        import json
+        err_msg = json.dumps({"error": f"An error occurred: {str(exc)}"})
+        yield f'data: {err_msg}\n\n'
+        yield 'data: {"token": "[DONE]"}\n\n'
+
+
 def run_voice_nl2sql(con, audio_bytes: bytes, role: str, scope_id: int | None = None, output_language: str = "kn-IN", session_id: str | None = None) -> dict:
     if con is None:
         return {

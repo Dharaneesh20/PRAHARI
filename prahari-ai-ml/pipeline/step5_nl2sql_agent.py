@@ -29,8 +29,12 @@ from datetime import datetime, timezone
 from dotenv import load_dotenv
 load_dotenv()
 
-from groq import Groq
-client = Groq()
+try:
+    from llm_client import complete_chat
+except ImportError:
+    import sys
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from llm_client import complete_chat
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(BASE_DIR, "db", "karnataka_fir.duckdb")
@@ -39,9 +43,7 @@ GEO_REAL_ONLY_CSV = os.path.join(BASE_DIR, "outputs", "dashboard_geo_real_only.c
 
 AUDIT_LOG_PATH = os.path.join(BASE_DIR, "outputs", "nl2sql_audit_log.jsonl")
 
-MODEL = "llama-3.3-70b-versatile"
-
-client = Groq()  # reads GROQ_API_KEY from env
+MODEL = "deepseek-ai/deepseek-v4-pro"
 
 
 # ======================================================================
@@ -294,27 +296,30 @@ def load_fact_tables(con):
 ROUTES = ["volume_trend", "hotspot_geo", "comparison", "network_repeat_offender", "lookup_detail", "conversational", "other"]
 
 def route_question(question: str) -> str:
-    resp = client.chat.completions.create(
-        model=MODEL,
-        max_tokens=20,
-        temperature=0,
-        messages=[
-            {"role": "system", "content": (
-                "Classify the crime-data question into exactly one label from this list, "
-                f"reply with ONLY the label, nothing else: {ROUTES}\n"
-                "volume_trend = counts/trends over time or totals\n"
-                "hotspot_geo = location, hotspot, 'where', map, clustering\n"
-                "comparison = comparing districts/units/years/crime types\n"
-                "network_repeat_offender = repeat offenders, co-accused, criminal networks\n"
-                "lookup_detail = a specific case/person/unit lookup\n"
-                "conversational = general greeting, hi, hello, who are you, chitchat, thank you\n"
-                "other = anything else"
-            )},
-            {"role": "user", "content": question},
-        ],
-    )
-    label = resp.choices[0].message.content.strip().lower()
-    return label if label in ROUTES else "other"
+    try:
+        resp = complete_chat(
+            messages=[
+                {"role": "system", "content": (
+                    "Classify the crime-data question into exactly one label from this list, "
+                    f"reply with ONLY the label, nothing else: {ROUTES}\n"
+                    "volume_trend = counts/trends over time or totals\n"
+                    "hotspot_geo = location, hotspot, 'where', map, clustering\n"
+                    "comparison = comparing districts/units/years/crime types\n"
+                    "network_repeat_offender = repeat offenders, co-accused, criminal networks\n"
+                    "lookup_detail = a specific case/person/unit lookup\n"
+                    "conversational = general greeting, hi, hello, who are you, chitchat, thank you\n"
+                    "other = anything else"
+                )},
+                {"role": "user", "content": question},
+            ],
+            max_tokens=20,
+            temperature=0,
+        )
+        label = resp.choices[0].message.content.strip().lower()
+        return label if label in ROUTES else "other"
+    except Exception as exc:
+        print(f"Route classification error: {exc}")
+        return "other"
 
 
 # ======================================================================
@@ -337,11 +342,37 @@ ROUTE_HINTS = {
     "comparison": "This is a comparison question. Aggregate with GROUP BY on the compared dimension.",
 }
 
-def generate_sql(question: str, route: str, schema_context: str, clearance_level: int) -> str:
+def get_recent_session_context(con, session_id: str | None, limit: int = 3) -> str:
+    if not session_id or not con:
+        return ""
+    try:
+        df_hist = con.execute(
+            "SELECT question, generated_sql FROM AgentAuditLog WHERE session_id = ? ORDER BY timestamp DESC LIMIT ?",
+            [str(session_id), limit]
+        ).fetchdf()
+        if df_hist.empty:
+            return ""
+        items = []
+        for _, r in df_hist.iloc[::-1].iterrows():
+            q = r.get("question", "")
+            s = r.get("generated_sql", "")
+            if q and s:
+                items.append(f"User Question: {q}\nSQL Used: {s}")
+        return "\n".join(items)
+    except Exception:
+        return ""
+
+
+def generate_sql(question: str, route: str, schema_context: str, clearance_level: int, conversation_context: str = "") -> str:
     hint = ROUTE_HINTS.get(route, "")
     rbac_rule = ""
     if clearance_level < 3:
         rbac_rule = "\n- RBAC RESTRICTION: User clearance < 3. DO NOT return raw PII (names, phones) of Victims, Complainants, or Accused. Redact or exclude them."
+    
+    context_str = ""
+    if conversation_context:
+        context_str = f"\nRECENT CONVERSATION HISTORY (Use this to resolve implicit references like 'there', 'in that location', 'that district', 'those cases'):\n{conversation_context}\n"
+
     system = f"""You write DuckDB SQL for a Karnataka Police FIR analytics database.
 Only these tables/columns exist — never invent columns:
 
@@ -350,20 +381,20 @@ Only these tables/columns exist — never invent columns:
 {BUSINESS_GLOSSARY}
 
 {hint}
-
+{context_str}
 Rules:{rbac_rule}
 - Output ONLY the SQL query. No markdown fences, no explanation, no comments.
 - SELECT statements only, read-only.
+- AGGREGATION RULE: For questions asking about counts, volume, totals, or breakdowns (e.g., 'how many cases', 'any theft cases', 'breakdown of crimes'), ALWAYS write aggregated SQL using COUNT(*), SUM(CaseCount), and GROUP BY (e.g. GROUP BY CrimeGroupName or CrimeHeadName). Do NOT SELECT raw individual unaggregated rows for summary questions.
 - Always add a reasonable LIMIT (e.g. 200) unless the question clearly wants an aggregate scalar.
 """
-    resp = client.chat.completions.create(
-        model=MODEL,
-        max_tokens=500,
-        temperature=0,
+    resp = complete_chat(
         messages=[
             {"role": "system", "content": system},
             {"role": "user", "content": question},
         ],
+        max_tokens=1000,
+        temperature=0,
     )
     sql = resp.choices[0].message.content.strip()
     sql = re.sub(r"^```sql\s*|\s*```$", "", sql, flags=re.IGNORECASE | re.MULTILINE).strip()
@@ -437,22 +468,98 @@ def explain_result(question: str, sql: str, df: pd.DataFrame, route: str) -> str
             "generated for demonstration purposes and does not represent real criminal records.\""
         )
     system = (
-        "You explain SQL query results to a police analyst in plain English. "
-        "Be concise (3-5 sentences), lead with the direct answer, cite specific numbers "
-        "from the data below. If there are multiple rows or structured comparative data, "
-        "ALWAYS format it cleanly using Markdown tables or bulleted lists to make it easy to read." + provenance_note
+        "You are Prahari AI, a senior intelligence analyst copilot for Karnataka State Police.\n"
+        "Provide a clear, balanced, and natural response (middle ground: informative yet concise).\n\n"
+        "RESPONSE FORMAT & GUIDELINES:\n"
+        "1. Natural Summary: Start with 1-2 clear, conversational sentences directly answering the question with key numbers in bold.\n"
+        "2. Tables for Multi-row Data ONLY: Use clean Markdown tables (| Column | ... |) ONLY when presenting multi-row breakdowns, category distributions, or lists. For single metrics or counts, use natural text or bullet points instead of forcing a 1-row table.\n"
+        "3. Key Insights: Include 2-3 brief bullet points highlighting notable patterns, top categories, or context from the data.\n"
+        "4. Tone: Be helpful, professional, and balanced. Avoid cold 1-line database dumps and avoid long multi-paragraph essays." + provenance_note
     )
-    user = f"Question: {question}\n\nSQL used:\n{sql}\n\nResult ({len(df)} rows, showing up to 20):\n{preview}"
-    resp = client.chat.completions.create(
-        model=MODEL,
-        max_tokens=400,
-        temperature=0.3,
+    user = f"Question: {question}\n\nSQL used:\n{sql}\n\nResult ({len(df)} rows, showing up to 30):\n{preview}"
+    resp = complete_chat(
         messages=[
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ],
+        max_tokens=768,
+        temperature=0.2,
     )
     return resp.choices[0].message.content.strip()
+
+
+def explain_result_stream(question: str, sql: str, df: pd.DataFrame, route: str):
+    preview = df.head(30).to_csv(index=False) if df is not None and not df.empty else "No data returned."
+    
+    is_synthetic = False
+    if df is not None and not df.empty and "SyntheticNetworkFlag" in df.columns:
+        is_synthetic = bool(df["SyntheticNetworkFlag"].iloc[0])
+        
+    provenance_note = ""
+    if route == "hotspot_geo":
+        provenance_note = (
+            "\nIMPORTANT: mention that this location answer is backed by RealCoordCaseCount "
+            "real-coordinate cases (not all reported cases), if that column is present."
+        )
+    elif is_synthetic or route == "network_repeat_offender":
+        provenance_note = (
+            "\nIMPORTANT: you MUST include this exact disclosure notice at the end of your response: "
+            "\"Disclosure: This criminal network profile and co-accused connection map is synthetically "
+            "generated for demonstration purposes and does not represent real criminal records.\""
+        )
+    system = (
+        "You are Prahari AI, a senior intelligence analyst copilot for Karnataka State Police.\n"
+        "Provide a clear, balanced, and natural response (middle ground: informative yet concise).\n\n"
+        "RESPONSE FORMAT & GUIDELINES:\n"
+        "1. Natural Summary: Start with 1-2 clear, conversational sentences directly answering the question with key numbers in bold.\n"
+        "2. Tables for Multi-row Data ONLY: Use clean Markdown tables (| Column | ... |) ONLY when presenting multi-row breakdowns, category distributions, or lists. For single metrics or counts, use natural text or bullet points instead of forcing a 1-row table.\n"
+        "3. Key Insights: Include 2-3 brief bullet points highlighting notable patterns, top categories, or context from the data.\n"
+        "4. Tone: Be helpful, professional, and balanced. Avoid cold 1-line database dumps and avoid long multi-paragraph essays." + provenance_note
+    )
+    user = f"Question: {question}\n\nSQL used:\n{sql}\n\nResult ({len(df) if df is not None else 0} rows, showing up to 30):\n{preview}"
+    
+    try:
+        stream_resp = complete_chat(
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            max_tokens=768,
+            temperature=0.2,
+            stream=True
+        )
+        
+        in_think_tag = False
+        for chunk in stream_resp:
+            if hasattr(chunk, "choices") and chunk.choices:
+                delta = chunk.choices[0].delta
+                
+                # Check for reasoning_content / reasoning attribute from reasoning models
+                reasoning = getattr(delta, "reasoning_content", None) or getattr(delta, "reasoning", None)
+                if reasoning:
+                    yield {"type": "thinking", "content": reasoning}
+                
+                content = getattr(delta, "content", None)
+                if content:
+                    if "<think>" in content:
+                        in_think_tag = True
+                        content = content.replace("<think>", "")
+                    if "</think>" in content:
+                        in_think_tag = False
+                        parts = content.split("</think>")
+                        if parts[0]:
+                            yield {"type": "thinking", "content": parts[0]}
+                        if len(parts) > 1 and parts[1]:
+                            yield {"type": "token", "content": parts[1]}
+                        continue
+                    
+                    if content:
+                        if in_think_tag:
+                            yield {"type": "thinking", "content": content}
+                        else:
+                            yield {"type": "token", "content": content}
+    except Exception as stream_err:
+        logger.warning("LLM stream interrupted or timed out: %s", stream_err)
 
 
 # ======================================================================
@@ -526,9 +633,10 @@ joined tables — qualify it with the correct table name/alias.
 Output ONLY the corrected SQL query. No markdown fences, no explanation.
 """
     user = f"Question: {question}\n\nPrevious SQL:\n{broken_sql}\n\nError:\n{error}\n\nCorrected SQL:"
-    resp = client.chat.completions.create(
-        model=MODEL, max_tokens=500, temperature=0,
+    resp = complete_chat(
         messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+        max_tokens=1000,
+        temperature=0,
     )
     sql = resp.choices[0].message.content.strip()
     return re.sub(r"^```sql\s*|\s*```$", "", sql, flags=re.IGNORECASE | re.MULTILINE).strip()
@@ -613,7 +721,8 @@ def answer_question(con, question: str, schema_context: str, role: str, scope_id
             except Exception as graph_err:
                 print(f"Graph agent find_most_connected failed: {graph_err}. Falling back to LLM SQL.")
 
-    sql = generate_sql(question, route, schema_context, clearance_level)
+    conv_ctx = get_recent_session_context(con, session_id)
+    sql = generate_sql(question, route, schema_context, clearance_level, conversation_context=conv_ctx)
     
     # Apply RBAC Scope Filter on the generated SQL query
     from rbac import apply_scope_filter
@@ -652,6 +761,90 @@ def answer_question(con, question: str, schema_context: str, role: str, scope_id
               model_used=model_used, final_answer=answer, role=role, scope_id=scope_id, session_id=session_id)
     return {"question": question, "route": route, "sql": sql, "error": None,
             "answer": answer, "result_df": df, "repaired": attempts > 0, "audit_id": audit_id}
+
+
+def answer_question_stream(
+    con,
+    question: str,
+    role: str = "SCRB_ADMIN",
+    scope_id: int | None = None,
+    max_repair_attempts: int = 2,
+    clearance_level: int = 3,
+    session_id: str | None = None,
+):
+    """
+    Generator that streams execution metadata followed by real-time LLM answer tokens.
+    Yields dict objects:
+      - {"type": "meta", "route": ..., "sql": ..., "rows": ...}
+      - {"type": "token", "content": "..."}
+      - {"type": "error", "error": "..."}
+    """
+    t0 = time.time()
+    schema_context = get_schema_context(con)
+    route = route_question(question)
+
+    if route == "conversational":
+        system = "You are Prahari AI, an intelligence copilot for Karnataka State Police. Answer general chitchat warmly, concisely, and professionally."
+        resp_stream = complete_chat(
+            messages=[{"role": "system", "content": system}, {"role": "user", "content": question}],
+            max_tokens=256,
+            temperature=0.7,
+            stream=True,
+        )
+        yield {"type": "meta", "route": route, "sql": "", "rows": 0}
+        full_text = []
+        for chunk in resp_stream:
+            if hasattr(chunk, "choices") and chunk.choices:
+                delta = chunk.choices[0].delta
+                if delta and getattr(delta, "content", None):
+                    token = delta.content
+                    full_text.append(token)
+                    yield {"type": "token", "content": token}
+        ans_str = "".join(full_text)
+        log_audit(con, question, route, sql="", row_count=0, error=None, elapsed_s=time.time() - t0, repaired=False, model_used=MODEL, final_answer=ans_str, role=role, scope_id=scope_id, session_id=session_id)
+        return
+
+    conv_ctx = get_recent_session_context(con, session_id)
+    sql = generate_sql(question, route, schema_context, clearance_level, conversation_context=conv_ctx)
+    from rbac import apply_scope_filter
+    sql = apply_scope_filter(con, sql, role, scope_id)
+
+    attempts = 0
+    df = None
+    err = None
+    while True:
+        ok, reason = validate_sql(sql)
+        err = None if ok else reason
+        if ok:
+            df, err = execute_sql(con, sql)
+
+        if err is None:
+            break
+        if attempts >= max_repair_attempts:
+            yield {"type": "error", "error": f"SQL Error: {err}", "route": route, "sql": sql}
+            log_audit(con, question, route, sql, None, err, time.time() - t0, repaired=attempts > 0, model_used=MODEL, final_answer=None, role=role, scope_id=scope_id, session_id=session_id)
+            return
+
+        attempts += 1
+        sql = repair_sql(question, sql, err, schema_context, route)
+        sql = apply_scope_filter(con, sql, role, scope_id)
+
+    row_cnt = len(df) if df is not None else 0
+    yield {"type": "meta", "route": route, "sql": sql, "rows": row_cnt}
+
+    full_tokens = []
+    for item in explain_result_stream(question, sql, df, route):
+        if isinstance(item, dict):
+            if item.get("type") == "token":
+                full_tokens.append(item.get("content", ""))
+            yield item
+        else:
+            full_tokens.append(str(item))
+            yield {"type": "token", "content": str(item)}
+
+    ans_str = "".join(full_tokens)
+    log_audit(con, question, route, sql, row_cnt, None, time.time() - t0, repaired=attempts > 0, model_used=MODEL, final_answer=ans_str, role=role, scope_id=scope_id, session_id=session_id)
+
 
 
 def answer_question_voice(con, audio_bytes: bytes, role: str, scope_id: int | None = None, output_language: str = "kn-IN", session_id: str | None = None) -> dict:

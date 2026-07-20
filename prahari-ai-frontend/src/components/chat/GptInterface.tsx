@@ -3,13 +3,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Paperclip, Database,
   ArrowUp, Mic, Camera, Check, Loader2,
-  Plus, MessageSquare
+  Plus, MessageSquare, Brain, ChevronDown, ChevronRight, Download
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import LiquidOrb from "../LiquidOrb";
 import ConsentSheet from "../ConsentSheet";
 import AttachmentModal from "../AttachmentModal";
-import { apiFetch } from "../../lib/api";
+import { apiFetch, ml } from "../../lib/api";
 
 const SUGGESTED_PROMPTS = [
   {
@@ -57,8 +58,47 @@ function AnimatedHeadline({ text }: { text: string }) {
   );
 }
 
+function ThinkingBlock({ thinking, isStreaming }: { thinking?: string; isStreaming?: boolean }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  if (!thinking) return null;
+
+  return (
+    <div className="mb-3 rounded-xl border border-white/10 bg-black/30 overflow-hidden text-xs">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between px-3 py-2 text-white/70 hover:text-white hover:bg-white/5 transition-colors font-mono text-left"
+      >
+        <div className="flex items-center gap-2">
+          <Brain className="w-3.5 h-3.5 text-[#C9A227]" />
+          <span className="font-semibold text-white/80">Thought process</span>
+          {isStreaming && (
+            <span className="inline-flex gap-1 items-center ml-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#C9A227] animate-ping" />
+            </span>
+          )}
+        </div>
+        {isOpen ? <ChevronDown className="w-3.5 h-3.5 text-white/50" /> : <ChevronRight className="w-3.5 h-3.5 text-white/50" />}
+      </button>
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="px-3.5 py-2.5 border-t border-white/5 bg-black/40 font-mono text-white/60 whitespace-pre-wrap leading-relaxed max-h-60 overflow-y-auto text-[11px]"
+          >
+            {thinking}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 type SendState = "idle" | "thinking" | "done";
-type ChatMsg = { sender: "user" | "bot"; text: string };
+type ChatMsg = { sender: "user" | "bot"; text: string; thinking?: string };
 type ChatSession = { id: number; title: string; created_at: string };
 
 export default function GptInterface() {
@@ -120,38 +160,65 @@ export default function GptInterface() {
     setMessage("");
     setSendState("thinking");
 
+    let botMsgIdx = -1;
+    setChat((prev) => {
+      botMsgIdx = prev.length;
+      return [...prev, { sender: "bot", text: "", thinking: "" }];
+    });
+
     try {
-      const payload: any = { question: textToSend };
-      if (currentSessionId) payload.session_id = currentSessionId;
-
-      const response = await apiFetch<any>("/api/v1/search/nl2sql", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-
-      setChat((prev) => [
-        ...prev,
-        {
-          sender: "bot",
-          text: response.answer || "I'm sorry, I couldn't process that query.",
+      let accumulatedText = "";
+      let accumulatedThinking = "";
+      await ml.nl2sqlStream(
+        textToSend,
+        (token: string) => {
+          accumulatedText += token;
+          setChat((prev) => {
+            const copy = [...prev];
+            if (copy[botMsgIdx]) {
+              copy[botMsgIdx] = { ...copy[botMsgIdx], text: accumulatedText };
+            }
+            return copy;
+          });
         },
-      ]);
-      
-      if (response.session_id && response.session_id !== currentSessionId) {
-        setCurrentSessionId(response.session_id);
-        fetchSessions();
-      }
+        (_meta: any) => {
+          setSendState("done");
+        },
+        (err: string) => {
+          setChat((prev) => {
+            const copy = [...prev];
+            if (copy[botMsgIdx]) {
+              copy[botMsgIdx] = { ...copy[botMsgIdx], text: `**Error:** ${err}` };
+            }
+            return copy;
+          });
+        },
+        (thinkingToken: string) => {
+          accumulatedThinking += thinkingToken;
+          setChat((prev) => {
+            const copy = [...prev];
+            if (copy[botMsgIdx]) {
+              copy[botMsgIdx] = { ...copy[botMsgIdx], thinking: accumulatedThinking };
+            }
+            return copy;
+          });
+        }
+      );
 
       setSendState("done");
       setTimeout(() => setSendState("idle"), 800);
     } catch (error: any) {
-      setChat((prev) => [
-        ...prev,
-        {
-          sender: "bot",
-          text: `**Error:** ${error.message || "Failed to contact Prahari Server."}`,
-        },
-      ]);
+      const errMsg = typeof error === "string"
+        ? error
+        : (error?.message || (typeof error?.detail === "string" ? error.detail : JSON.stringify(error)));
+      setChat((prev) => {
+        const copy = [...prev];
+        if (botMsgIdx !== -1 && copy[botMsgIdx]) {
+          copy[botMsgIdx] = { sender: "bot", text: `**Error:** ${errMsg || "Failed to contact Prahari Server."}` };
+          return copy;
+        }
+        return [...prev, { sender: "bot", text: `**Error:** ${errMsg || "Failed to contact Prahari Server."}` }];
+      });
       setSendState("idle");
     }
   };
@@ -172,6 +239,15 @@ export default function GptInterface() {
       setIsListening(true);
       setTimeout(() => setIsListening(false), 5000);
     } catch { }
+  };
+
+  const handleExportPdf = async () => {
+    try {
+      await ml.exportPdf(currentSessionId || "1");
+    } catch (e) {
+      console.error("PDF export failed", e);
+      alert("Failed to export PDF report. Please check backend server.");
+    }
   };
 
   return (
@@ -203,6 +279,21 @@ export default function GptInterface() {
 
       {/* ── Main Chat Area ───────────────────────────────────── */}
       <div className="flex-1 flex flex-col h-full w-full max-w-4xl mx-auto p-4 md:p-6 relative">
+        {chat.length > 0 && (
+          <div className="flex justify-end pb-2">
+            <button
+              onClick={handleExportPdf}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition backdrop-blur-md"
+              style={{
+                background: "rgba(201,162,39,0.15)",
+                color: "#C9A227",
+                border: "1px solid rgba(201,162,39,0.3)"
+              }}
+            >
+              <Download className="w-3.5 h-3.5" /> Export PDF Report
+            </button>
+          </div>
+        )}
         <div className="flex-1 overflow-y-auto overflow-x-visible px-2 sm:px-6 flex flex-col gap-6 py-4 scrollbar-hide">
           {chat.length === 0 ? (
             <motion.div
@@ -270,7 +361,7 @@ export default function GptInterface() {
                 >
                   {msg.sender === "bot" && (
                     <div className="shrink-0 mt-1">
-                      <LiquidOrb size={32} isThinking={false} />
+                      <LiquidOrb size={32} isThinking={sendState === "thinking" && !msg.text} />
                     </div>
                   )}
                   <div
@@ -292,36 +383,28 @@ export default function GptInterface() {
                           }
                     }
                   >
-                    {msg.sender === "bot"
-                      ? <div className="prose prose-sm dark:prose-invert max-w-none text-white prose-p:leading-relaxed prose-th:text-white prose-td:text-white/80"><ReactMarkdown>{msg.text}</ReactMarkdown></div>
-                      : msg.text}
+                    {msg.sender === "bot" ? (
+                      <>
+                        <ThinkingBlock thinking={msg.thinking} isStreaming={sendState === "thinking" && !msg.text} />
+                        {msg.text ? (
+                          <div className="prose prose-sm dark:prose-invert max-w-none text-white prose-p:leading-relaxed prose-th:text-white prose-td:text-white/80 prose-table:border-collapse prose-th:border prose-th:border-white/20 prose-th:p-2 prose-td:border prose-td:border-white/10 prose-td:p-2">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
+                          </div>
+                        ) : (
+                          <div className="flex gap-1.5 items-center py-1">
+                            <div className="w-1.5 h-1.5 rounded-full bg-[#C9A227] animate-bounce" />
+                            <div className="w-1.5 h-1.5 rounded-full bg-[#C9A227] animate-bounce [animation-delay:0.15s]" />
+                            <div className="w-1.5 h-1.5 rounded-full bg-[#C9A227] animate-bounce [animation-delay:0.3s]" />
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      msg.text
+                    )}
                   </div>
                 </motion.div>
               ))}
 
-              {sendState === "thinking" && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="flex items-center gap-3"
-                >
-                  <LiquidOrb size={32} isThinking />
-                  <div
-                    className="px-4 py-3 rounded-2xl text-sm"
-                    style={{
-                      background: "rgba(255,255,255,0.06)",
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      color: "rgba(255,255,255,0.5)",
-                    }}
-                  >
-                    <div className="flex gap-1.5 items-center">
-                      <div className="w-1.5 h-1.5 rounded-full bg-[#C9A227] animate-bounce" />
-                      <div className="w-1.5 h-1.5 rounded-full bg-[#C9A227] animate-bounce [animation-delay:0.15s]" />
-                      <div className="w-1.5 h-1.5 rounded-full bg-[#C9A227] animate-bounce [animation-delay:0.3s]" />
-                    </div>
-                  </div>
-                </motion.div>
-              )}
               <div ref={bottomRef} />
             </>
           )}
