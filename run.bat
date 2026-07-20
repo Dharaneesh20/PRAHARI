@@ -87,6 +87,7 @@ if /i "%run_ml%"=="y" (
     python step2b_case_master.py
     python step3_pii_synthesis.py
     python step4_feature_engineering.py
+    python step4b_network_summary.py
     python step5_nl2sql_agent.py
     python step6_trend_hotspot_module.py
     python step7_test_suite.py

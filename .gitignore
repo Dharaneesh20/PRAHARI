@@ -27,3 +27,15 @@ build/
 
 # Logs
 *.log
+
+# ML generated files
+prahari-ai-ml/data/
+prahari-ai-ml/db/
+prahari-ai-ml/outputs/
+
+# DuckDB
+prahari-ai-ml/**/*.duckdb
+prahari-ai-ml/**/*.duckdb.wal
+
+# Generated datasets
+prahari-ai-ml/**/*.parquet
