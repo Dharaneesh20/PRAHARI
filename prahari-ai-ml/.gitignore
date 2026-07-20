@@ -43,3 +43,11 @@ hotspot_clusters_*.parquet
 hotspot_model_benchmark.csv
 trend_forecast_next_month.csv
 trend_model_benchmark.csv
+
+# Runtime data
+data/
+db/
+outputs/
+
+# DuckDB database
+*.duckdb
