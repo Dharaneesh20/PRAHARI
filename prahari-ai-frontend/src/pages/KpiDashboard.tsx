@@ -3,18 +3,19 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { AlertTriangle, Shield, Map as MapIcon, Clock, TrendingUp, Activity, ChevronRight } from "lucide-react";
 import StatCard from "../components/StatCard";
-import GlassCard, { glassPanelStyle } from "../components/GlassCard";
+import GlassCard from "../components/GlassCard";
 import DateRangePicker, { type DateRange } from "../components/DateRangePicker";
 import { SvgAreaChart } from "../components/SvgChart";
 import { SeverityBadge } from "../components/StatusBadge";
 import { kpi as kpiApi, auth as authApi, notifications as notificationApi } from "../lib/api";
 import type { KpiSummary, TrendPoint, HotspotZone, UserProfile } from "../lib/types";
 import { mockHotspots, mockKpiSummary, mockNotifications, mockTrend } from "../data/mockData";
+import { useAppContext } from "../context/AppContext";
 
 // Alert ticker item
 function AlertTicker({ alerts }: { alerts: { id: string; text: string; timestamp: string }[] }) {
   const [paused, setPaused] = useState(false);
-  const doubled = [...alerts, ...alerts]; // seamless loop
+  const doubled = [...alerts, ...alerts];
   return (
     <div
       className="relative overflow-hidden rounded-xl py-2.5 px-4 flex items-center"
@@ -48,6 +49,7 @@ type AlertItem = { id: string; text: string; timestamp: string };
 
 export default function KpiDashboard() {
   const navigate = useNavigate();
+  const { t, language } = useAppContext();
   const [dateRange, setDateRange] = useState<DateRange>("7d");
   const [kpiSummary, setKpiSummary] = useState<KpiSummary | null>(null);
   const [trendData, setTrendData] = useState<TrendPoint[]>([]);
@@ -71,25 +73,19 @@ export default function KpiDashboard() {
       setLiveAlerts(alerts.slice(0, 5).map(item => ({
         id: item.id,
         text: `${item.title}: ${item.message}`,
-        timestamp: new Date(item.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
+        timestamp: new Date(item.createdAt).toLocaleTimeString(language === "kn" ? "kn-IN" : "en-IN", { hour: "2-digit", minute: "2-digit" }),
       })));
     }).catch(err => {
       console.error(err);
       setKpiSummary(mockKpiSummary);
       setTrendData(mockTrend);
       setHotspots(mockHotspots);
-      setLiveAlerts(mockNotifications.map(item => ({
-        id: item.id,
-        text: `${item.title}: ${item.message}`,
-        timestamp: new Date(item.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
-      })));
-    })
-      .finally(() => setLoading(false));
-  }, [dateRange]);
+    }).finally(() => setLoading(false));
+  }, [dateRange, language]);
 
   const clearanceLevel = profile?.clearance_level ?? 1;
 
-  if (loading && !kpiSummary) return <div className="flex items-center justify-center h-full" style={{ color: "rgba(255,255,255,0.4)" }}><p>Loading dashboard...</p></div>;
+  if (loading && !kpiSummary) return <div className="flex items-center justify-center h-full" style={{ color: "rgba(255,255,255,0.4)" }}><p>{language === "kn" ? "ಡ್ಯಾಶ್‌ಬೋರ್ಡ್ ಲೋಡ್ ಆಗುತ್ತಿದೆ..." : "Loading dashboard..."}</p></div>;
 
   return (
     <div className="w-full h-full overflow-y-auto scrollbar-hide relative z-10">
@@ -99,11 +95,11 @@ export default function KpiDashboard() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-xl font-bold" style={{ color: "rgba(255,255,255,0.92)" }}>
-              Tactical Overview
-              {profile && <span className="ml-3 text-xs px-2 py-1 rounded" style={{ background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.7)" }}>Level {clearanceLevel}</span>}
+              {t("tacticalOverview")}
+              {profile && <span className="ml-3 text-xs px-2 py-1 rounded" style={{ background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.7)" }}>{language === "kn" ? "ಹಂತ" : "Level"} {clearanceLevel}</span>}
             </h1>
             <p className="text-sm mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>
-              Karnataka State — {new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+              {language === "kn" ? "ಕರ್ನಾಟಕ ರಾಜ್ಯ" : "Karnataka State"} — {new Date().toLocaleDateString(language === "kn" ? "kn-IN" : "en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
             </p>
           </div>
           <DateRangePicker value={dateRange} onChange={setDateRange} />
@@ -114,15 +110,15 @@ export default function KpiDashboard() {
 
         {/* ── Stat Cards ──────────────────────────────────────── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          <StatCard label="Active Cases" value={kpiSummary?.totalActiveCases ?? 0} icon={<Activity className="w-5 h-5" />} accentColor="#D14343" delay={0.05} />
-          <StatCard label="Alerts Today" value={kpiSummary?.alertsToday ?? 0} icon={<AlertTriangle className="w-5 h-5" />} accentColor="#D14343" delay={0.1} />
-          <StatCard label="On-Duty Units" value={kpiSummary?.onDutyUnits ?? 0} icon={<Shield className="w-5 h-5" />} accentColor="#2E9E6C" delay={0.15} />
-          <StatCard label="Avg Response" value={kpiSummary?.avgResponseTime ?? 0} suffix=" min" decimals={1} icon={<Clock className="w-5 h-5" />} accentColor="#C9A227" trend={-0.8} trendLabel=" vs last wk" delay={0.2} />
+          <StatCard label={t("activeCases")} value={kpiSummary?.totalActiveCases ?? 0} icon={<Activity className="w-5 h-5" />} accentColor="#D14343" delay={0.05} />
+          <StatCard label={t("alertsToday")} value={kpiSummary?.alertsToday ?? 0} icon={<AlertTriangle className="w-5 h-5" />} accentColor="#D14343" delay={0.1} />
+          <StatCard label={t("onDutyUnits")} value={kpiSummary?.onDutyUnits ?? 0} icon={<Shield className="w-5 h-5" />} accentColor="#2E9E6C" delay={0.15} />
+          <StatCard label={t("avgResponse")} value={kpiSummary?.avgResponseTime ?? 0} suffix={language === "kn" ? " ನಿಮಿಷ" : " min"} decimals={1} icon={<Clock className="w-5 h-5" />} accentColor="#C9A227" trend={-0.8} trendLabel={language === "kn" ? " ಕಳೆದ ವಾರಕ್ಕೆ ಹೋಲಿಸಿದರೆ" : " vs last wk"} delay={0.2} />
           
           <StatCard
-            label="Clearance Rate" value={kpiSummary?.clearanceRate ?? 0} suffix="%" decimals={1}
+            label={t("clearanceRate")} value={kpiSummary?.clearanceRate ?? 0} suffix="%" decimals={1}
             icon={<TrendingUp className="w-5 h-5" />} accentColor="#2E9E6C"
-            trend={kpiSummary?.clearanceRateTrend ?? 0} trendLabel="% vs last period" delay={0.25}
+            trend={kpiSummary?.clearanceRateTrend ?? 0} trendLabel={language === "kn" ? "% ಕಳೆದ ಅವಧಿಗೆ ಹೋಲಿಸಿದರೆ" : "% vs last period"} delay={0.25}
           />
         </div>
 
@@ -132,13 +128,13 @@ export default function KpiDashboard() {
           {/* Crime Trend Chart */}
           <div className="lg:col-span-2">
             <GlassCard
-              title="Crime Trend"
-              subtitle={`Incidents per ${dateRange === "today" ? "day" : dateRange === "7d" ? "week" : "day"}`}
+              title={t("crimeTrend")}
+              subtitle={language === "kn" ? "ಪ್ರತಿ ದಿನದ ಅಪರಾಧ ಘಟನೆಗಳು" : `Incidents per ${dateRange === "today" ? "day" : dateRange === "7d" ? "week" : "day"}`}
               delay={0.3}
               action={
                 <div className="flex items-center gap-1 text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>
                   <span className="w-6 h-0.5 inline-block rounded-full" style={{ background: "#C9A227" }} />
-                  Incidents
+                  {language === "kn" ? "ಘಟನೆಗಳು" : "Incidents"}
                 </div>
               }
             >
@@ -151,64 +147,24 @@ export default function KpiDashboard() {
             </GlassCard>
           </div>
 
-          {/* Patrol Mini-Widget + Hotspots */}
+          {/* Patrol Mini-Widget */}
           <div className="flex flex-col gap-5">
-            {/* Patrol summary */}
-            <GlassCard title="Patrol Units" delay={0.32}
+            <GlassCard title={t("patrolUnits")} delay={0.32}
               action={
-                <button onClick={() => navigate("/patrol")} className="text-xs font-semibold flex items-center gap-1" style={{ color: "#C9A227" }}>
-                  View all <ChevronRight className="w-3 h-3" />
+                <button onClick={() => navigate("/map")} className="text-xs font-semibold flex items-center gap-1 text-[#C9A227]">
+                  {t("viewAll")} <ChevronRight className="w-3 h-3" />
                 </button>
               }
             >
               <div className="flex items-center gap-6">
                 <div className="text-center">
-                  <p className="text-3xl font-bold" style={{ color: "#2E9E6C" }}>{kpiSummary?.onDutyUnits ?? 0}</p>
-                  <p className="text-[10px] uppercase tracking-widest mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>On Duty</p>
+                  <p className="text-3xl font-bold text-[#2E9E6C]">{kpiSummary?.onDutyUnits ?? 0}</p>
+                  <p className="text-[10px] uppercase tracking-widest mt-1 text-white/40">{t("onDuty")}</p>
                 </div>
-                <div className="w-px h-12" style={{ background: "rgba(255,255,255,0.08)" }} />
+                <div className="w-px h-12 bg-white/10" />
                 <div className="text-center">
-                  <p className="text-3xl font-bold" style={{ color: "#6B7280" }}>{kpiSummary?.offDutyUnits ?? 0}</p>
-                  <p className="text-[10px] uppercase tracking-widest mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>Off Duty</p>
-                </div>
-                {/* Mini donut ring */}
-                <div className="ml-auto">
-                  <svg width="52" height="52" viewBox="0 0 52 52">
-                    <circle cx="26" cy="26" r="20" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="6" />
-                    <circle cx="26" cy="26" r="20" fill="none" stroke="#2E9E6C" strokeWidth="6"
-                      strokeDasharray={`${((kpiSummary?.onDutyUnits ?? 0) / Math.max(1, (kpiSummary?.onDutyUnits ?? 0) + (kpiSummary?.offDutyUnits ?? 0))) * 125.6} 125.6`}
-                      strokeLinecap="round" transform="rotate(-90 26 26)" />
-                    <text x="26" y="30" textAnchor="middle" fontSize="9" fontWeight="bold" fill="rgba(255,255,255,0.8)">
-                      {Math.round(((kpiSummary?.onDutyUnits ?? 0) / Math.max(1, (kpiSummary?.onDutyUnits ?? 0) + (kpiSummary?.offDutyUnits ?? 0))) * 100)}%
-                    </text>
-                  </svg>
-                </div>
-              </div>
-            </GlassCard>
-
-            {/* Case ratio */}
-            <GlassCard title="Cases" delay={0.36}
-              action={
-                <button onClick={() => navigate("/incidents")} className="text-xs font-semibold flex items-center gap-1" style={{ color: "#C9A227" }}>
-                  View <ChevronRight className="w-3 h-3" />
-                </button>
-              }
-            >
-              <div className="flex items-center gap-4">
-                <div className="flex-1">
-                  <div className="flex justify-between text-[10px] mb-1" style={{ color: "rgba(255,255,255,0.4)" }}>
-                    <span>Open ({kpiSummary?.openCases ?? 0})</span>
-                    <span>Closed ({kpiSummary?.closedCases ?? 0})</span>
-                  </div>
-                  <div className="h-2 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${((kpiSummary?.openCases ?? 0) / Math.max(1, (kpiSummary?.openCases ?? 0) + (kpiSummary?.closedCases ?? 0))) * 100}%` }}
-                      transition={{ duration: 1.2, delay: 0.5, ease: "easeOut" }}
-                      className="h-full rounded-full"
-                      style={{ background: "linear-gradient(90deg, #D14343 0%, #C9A227 100%)" }}
-                    />
-                  </div>
+                  <p className="text-3xl font-bold text-gray-500">{kpiSummary?.offDutyUnits ?? 0}</p>
+                  <p className="text-[10px] uppercase tracking-widest mt-1 text-white/40">{t("offDuty")}</p>
                 </div>
               </div>
             </GlassCard>
@@ -217,12 +173,12 @@ export default function KpiDashboard() {
 
         {/* ── Hotspot Zones ───────────────────────────────────── */}
         <GlassCard
-          title="Top Hotspot Zones"
-          subtitle="Click zone to view on Crime Map"
+          title={t("hotspotZones")}
+          subtitle={language === "kn" ? "ಅಪರಾಧ ನಕ್ಷೆಯಲ್ಲಿ ವೀಕ್ಷಿಸಲು ವಲಯದ ಮೇಲೆ ಕ್ಲಿಕ್ ಮಾಡಿ" : "Click zone to view on Crime Map"}
           delay={0.4}
           action={
-            <button onClick={() => navigate("/map")} className="text-xs font-semibold flex items-center gap-1" style={{ color: "#C9A227" }}>
-              Open Map <MapIcon className="w-3 h-3" />
+            <button onClick={() => navigate("/map")} className="text-xs font-semibold flex items-center gap-1 text-[#C9A227]">
+              {language === "kn" ? "ನಕ್ಷೆ ತೆರೆಯಿರಿ" : "Open Map"} <MapIcon className="w-3 h-3" />
             </button>
           }
         >
@@ -237,30 +193,18 @@ export default function KpiDashboard() {
                 onClick={() => navigate(`/map?zone=${encodeURIComponent(zone.zone)}`)}
                 className="flex items-center gap-4 w-full text-left group"
               >
-                <span className="text-lg font-bold tabular-nums w-6 shrink-0" style={{ color: "rgba(255,255,255,0.25)" }}>
+                <span className="text-lg font-bold tabular-nums w-6 shrink-0 text-white/25">
                   {i + 1}
                 </span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>{zone.zone}</span>
+                    <span className="text-sm font-semibold text-white/85">{zone.zone}</span>
                     <div className="flex items-center gap-2">
                       <SeverityBadge severity={zone.severity} />
-                      <span className="text-sm font-bold tabular-nums" style={{ color: "rgba(255,255,255,0.6)" }}>{zone.incidents}</span>
+                      <span className="text-sm font-bold tabular-nums text-white/60">{zone.incidents}</span>
                     </div>
                   </div>
-                  <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${(zone.incidents / Math.max(1, hotspots[0]?.incidents ?? 1)) * 100}%` }}
-                      transition={{ duration: 1, delay: 0.5 + i * 0.08, ease: "easeOut" }}
-                      className="h-full rounded-full"
-                      style={{
-                        background: zone.severity === "critical" ? "#D14343" : zone.severity === "high" ? "#F97316" : "#C9A227",
-                      }}
-                    />
-                  </div>
                 </div>
-                <ChevronRight className="w-4 h-4 shrink-0 opacity-0 group-hover:opacity-60 transition-opacity" style={{ color: "#C9A227" }} />
               </motion.button>
             ))}
           </div>

@@ -353,6 +353,78 @@ export const ml = {
         body: JSON.stringify({ text, target_lang }),
       });
     },
+
+    /**
+     * Image OCR — streams extracted text tokens from NVIDIA vision LLM.
+     * @param imageFile  The image File object (PNG/JPG/WEBP)
+     * @param language   "en" | "kn" (Kannada)
+     * @param onToken    Callback for each text token
+     * @param onDone     Called when streaming completes
+     * @param onError    Called on error with message string
+     */
+    ocrScan: async (
+      imageFile: File,
+      language: "en" | "kn",
+      onToken: (token: string) => void,
+      onDone?: () => void,
+      onError?: (err: string) => void
+    ) => {
+      const authToken = getToken();
+      const headers: Record<string, string> = {};
+      if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
+
+      const formData = new FormData();
+      formData.append("file", imageFile, imageFile.name);
+      const langCode = language === "kn" ? "kan" : "eng";
+      formData.append("language", langCode);
+
+      const res = await fetch(`${BASE_URL}/api/v1/zia/ocr`, {
+        method: "POST",
+        headers,
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        const msg = typeof err.detail === "string" ? err.detail : "OCR request failed";
+        onError?.(msg);
+        return;
+      }
+
+      const reader = res.body?.getReader();
+      if (!reader) { onError?.("Stream reader unavailable"); return; }
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith("data: ")) continue;
+          try {
+            const parsed = JSON.parse(trimmed.slice(6));
+            if (parsed.status === "unconfigured") {
+              onError?.(
+                parsed.message ||
+                "Zoho Catalyst OCR credentials are not set. Please configure CATALYST_PROJECT_ID and CATALYST_ZIA_TOKEN in backend .env."
+              );
+              return;
+            }
+            if (parsed.error) { onError?.(parsed.error); return; }
+            if (parsed.token === "[DONE]") { onDone?.(); return; }
+            if (parsed.token) onToken(parsed.token);
+          } catch { /* ignore */ }
+        }
+      }
+      onDone?.();
+    },
   },
 
   mapIncidents: (district?: string, crime_group?: string) => {

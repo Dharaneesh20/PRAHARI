@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PRAHARI AI — Conversation Intelligence Report</title>
+  <style>
+    {{ css }}
+  </style>
+</head>
+<body>
+
+<!-- ── Cover Page ─────────────────────────────────────────── -->
+<div class="cover-page">
+  <div class="cover-watermark">CONFIDENTIAL</div>
+
+  <div class="cover-logos">
+    <img class="emblem" src="{{ karnataka_logo }}" alt="Karnataka Police Emblem"/>
+    <div class="logo-divider"></div>
+    <img class="prahari" src="{{ prahari_logo }}" alt="Prahari AI Logo"/>
+  </div>
+
+  <div class="cover-badge">Karnataka State Police Intelligence Platform</div>
+
+  <div class="cover-title">PRAHARI AI</div>
+  <div class="cover-report-type">Conversation Intelligence Report</div>
+  <div class="cover-subtitle">AI Powered Crime Intelligence Platform</div>
+  <div class="cover-divider"></div>
+
+  <div class="cover-meta">
+    <div class="cover-meta-row">
+      <span class="cover-meta-label">Session ID</span>
+      <span class="cover-meta-value">{{ session_id }}</span>
+    </div>
+    <div class="cover-meta-row">
+      <span class="cover-meta-label">User / Role</span>
+      <span class="cover-meta-value">{{ role }}</span>
+    </div>
+    <div class="cover-meta-row">
+      <span class="cover-meta-label">Generated</span>
+      <span class="cover-meta-value">{{ generated_time }}</span>
+    </div>
+    <div class="cover-meta-row">
+      <span class="cover-meta-label">Total Turns</span>
+      <span class="cover-meta-value">{{ total_turns }}</span>
+    </div>
+    <div class="cover-meta-row">
+      <span class="cover-meta-label">Database</span>
+      <span class="cover-meta-value">Karnataka FIR DuckDB</span>
+    </div>
+    <div class="cover-meta-row">
+      <span class="cover-meta-label">Primary Model</span>
+      <span class="cover-meta-value">{{ primary_model }}</span>
+    </div>
+  </div>
+
+  <div class="cover-classification">&#x26A0; CONFIDENTIAL — RESTRICTED ACCESS</div>
+</div>
+
+<!-- ── Report Body ─────────────────────────────────────────── -->
+<div class="page-body">
+
+  <!-- Watermark (repeats on all body pages) -->
+  <div class="watermark">CONFIDENTIAL</div>
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="logo-left">
+      <img src="{{ karnataka_logo }}" alt="Karnataka Police"/>
+    </div>
+    <div class="header-center">
+      <div class="title">PRAHARI AI</div>
+      <div class="subtitle">AI Powered Crime Intelligence Platform</div>
+    </div>
+    <div class="logo-right">
+      <img src="{{ prahari_logo }}" alt="Prahari AI"/>
+    </div>
+  </div>
+
+  {% if turns %}
+  {% for turn in turns %}
+  <!-- Turn {{ loop.index }} -->
+  <div class="turn-card no-break">
+    <div class="turn-card-header">
+      <span class="turn-number">&#x1F4CB; Query #{{ loop.index }}</span>
+      <span class="turn-timestamp">{{ turn.timestamp }}</span>
+    </div>
+    <div class="turn-card-body">
+
+      <!-- User Query -->
+      <div class="query-box">
+        <div class="query-label">&#x1F464; User Query</div>
+        <div class="query-text">{{ turn.question | e }}</div>
+      </div>
+
+      <!-- Meta Chips -->
+      <div class="turn-meta">
+        {% if turn.route %}<span class="meta-chip route">&#x1F4CD; Route: {{ turn.route }}</span>{% endif %}
+        {% if turn.model %}<span class="meta-chip model">&#x1F916; {{ turn.model }}</span>{% endif %}
+        {% if turn.row_count is not none %}<span class="meta-chip rows">&#x1F4CA; {{ turn.row_count }} rows</span>{% endif %}
+        {% if turn.input_mode %}<span class="meta-chip input">&#x1F3A4; {{ turn.input_mode }}</span>{% endif %}
+      </div>
+
+      <!-- SQL Block -->
+      {% if turn.sql %}
+      <div class="sql-block">
+        <div class="sql-block-header">
+          <span class="sql-block-label">&#x1F5C4; Executed SQL Query</span>
+          <div class="sql-block-dots">
+            <span class="d1"></span><span class="d2"></span><span class="d3"></span>
+          </div>
+        </div>
+        <pre class="sql-block-code">{{ turn.sql_highlighted | safe }}</pre>
+      </div>
+      {% endif %}
+
+      <!-- AI Analysis (rendered markdown) -->
+      {% if turn.answer %}
+      <div class="md-body">
+        {{ turn.answer_html | safe }}
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+
+  {% if not loop.last %}
+  <div class="section-divider"><span>Next Query</span></div>
+  {% endif %}
+  {% endfor %}
+
+  {% else %}
+  <div class="callout important">
+    <div class="callout-title"><span class="callout-icon">&#x26A0;</span> No Data Available</div>
+    <div class="callout-body">No conversation turns were found for session <strong>{{ session_id }}</strong>. The session may be empty or the session ID may be incorrect.</div>
+  </div>
+  {% endif %}
+
+</div>
+
+<!-- Page Footer (fixed, prints on every page) -->
+<div class="page-footer">
+  <span class="footer-left">PRAHARI AI &bull; Karnataka Police Intelligence Platform &bull; Generated using AI</span>
+  <span class="footer-center">CONFIDENTIAL</span>
+  <span class="footer-right">{{ generated_time }}</span>
+</div>
+
+</body>
+</html>

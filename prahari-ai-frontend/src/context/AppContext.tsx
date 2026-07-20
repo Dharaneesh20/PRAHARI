@@ -51,9 +51,36 @@ const translations: Record<"en" | "kn", Record<string, string>> = {
     navAdmin: "Admin Panel",
     commandCenter: "Command Center",
     onDuty: "On Duty",
+    offDuty: "Off Duty",
     loadingProfile: "Loading profile",
     notificationCenter: "Notification Center",
     openNotifications: "Open notifications",
+
+    // Dashboard
+    tacticalOverview: "Tactical Overview",
+    activeCases: "Active Cases",
+    alertsToday: "Alerts Today",
+    onDutyUnits: "On-Duty Units",
+    avgResponse: "Avg Response",
+    clearanceRate: "Clearance Rate",
+    crimeTrend: "Crime Trend",
+    patrolUnits: "Patrol Units",
+    hotspotZones: "Hotspot Zones",
+    viewAll: "View all",
+
+    // Bot / Chat
+    newInvestigation: "New Investigation",
+    recentChats: "Recent Chats",
+    whatToInvestigate: "What would you like to investigate today?",
+
+    // Analytics
+    advancedAnalytics: "Advanced Crime Analytics",
+    repeatOffenderIntel: "Repeat Offender Intelligence",
+    coAccusedSyndicate: "Co-Accused Syndicate Graph",
+    predictiveForecast: "AI Predictive Crime Forecast",
+
+    // Reports
+    investigationReports: "Tactical Investigation Reports",
   },
   kn: {
     settings: "ಸೆಟ್ಟಿಂಗ್‌ಗಳು",
@@ -76,23 +103,48 @@ const translations: Record<"en" | "kn", Record<string, string>> = {
     logout: "ಲಾಗ್ ಔಟ್",
     noNotifications: "ಅಧಿಸೂಚನೆಗಳಿಲ್ಲ",
     markRead: "ಓದಿದಂತೆ ಗುರುತಿಸಿ",
+
+    navBot: "ಪ್ರಹರಿ AI ಬಾಟ್",
+    navDashboard: "KPI ಡ್ಯಾಶ್ಬೋರ್ಡ್",
+    navCrimeMap: "ಅಪರಾಧ ನಕ್ಷೆ",
+    navIncidents: "ಲೈವ್ ಘಟನೆಗಳು",
+    navAnalytics: "ವಿಶ್ಲೇಷಣೆ",
+    navReports: "ವರದಿಗಳು",
+    navAdmin: "ನಿರ್ವಹಣೆ ಫಲಕ",
+    commandCenter: "ಕಮಾಂಡ್ ಸೆಂಟರ್",
+    onDuty: "ಕರ್ತವ್ಯದಲ್ಲಿದ್ದಾರೆ",
+    offDuty: "ಕರ್ತವ್ಯದಲ್ಲಿಲ್ಲ",
+    loadingProfile: "ಪ್ರೊಫೈಲ್ ಲೋಡ್ ಆಗುತ್ತಿದೆ",
+    notificationCenter: "ಅಧಿಸೂಚನೆ ಕೇಂದ್ರ",
+    openNotifications: "ಅಧಿಸೂಚನೆಗಳನ್ನು ತೆರೆಯಿರಿ",
+
+    // Dashboard
+    tacticalOverview: "ತಾಂತ್ರಿಕ ಅವಲೋಕನ",
+    activeCases: "ಸಕ್ರಿಯ ಪ್ರಕರಣಗಳು",
+    alertsToday: "ಇಂದಿನ ಎಚ್ಚರಿಕೆಗಳು",
+    onDutyUnits: "ಕರ್ತವ್ಯದಲ್ಲಿರುವ ಘಟಕಗಳು",
+    avgResponse: "ಸರಾಸರಿ ಪ್ರತಿಕ್ರಿಯೆ",
+    clearanceRate: "ವಿಲೇವಾರಿ ದರ",
+    crimeTrend: "ಅಪರಾಧ ಪ್ರವೃತ್ತಿ",
+    patrolUnits: "ಗಸ್ತು ಪಡೆಗಳು",
+    hotspotZones: "ಹಾಟ್‌ಸ್ಪಾಟ್ ವಲಯಗಳು",
+    viewAll: "ಎಲ್ಲವನ್ನೂ ವೀಕ್ಷಿಸಿ",
+
+    // Bot / Chat
+    newInvestigation: "ಹೊಸ ತನಿಖೆ",
+    recentChats: "ಇತ್ತೀಚಿನ ಚಾಟ್‌ಗಳು",
+    whatToInvestigate: "ಇಂದು ನೀವು ಎಲ್ಲಿ ತನಿಖೆ ನಡೆಸಲು ಬಯಸುತ್ತೀರಿ?",
+
+    // Analytics
+    advancedAnalytics: "ಸುಧಾರಿತ ಅಪರಾಧ ವಿಶ್ಲೇಷಣೆ",
+    repeatOffenderIntel: "ಪುನರಾವರ್ತಿತ ಅಪರಾಧಿಗಳ ಮಾಹಿತಿ",
+    coAccusedSyndicate: "ಸಹ-ಆರೋಪಿ ಸಿಂಡಿಕೇಟ್ ನಕ್ಷೆ",
+    predictiveForecast: "AI ಮುನ್ಸೂಚನೆ ಅಪರಾಧ ಮುನ್ಸೂಚನೆ",
+
+    // Reports
+    investigationReports: "ತಾಂತ್ರಿಕ ತನಿಖಾ ವರದಿಗಳು",
   },
 };
-
-Object.assign(translations.kn, {
-  navBot: "ಪ್ರಹರಿ AI ಬಾಟ್",
-  navDashboard: "KPI ಡ್ಯಾಶ್ಬೋರ್ಡ್",
-  navCrimeMap: "ಅಪರಾಧ ನಕ್ಷೆ",
-  navIncidents: "ಲೈವ್ ಘಟನೆಗಳು",
-  navAnalytics: "ವಿಶ್ಲೇಷಣೆ",
-  navReports: "ವರದಿಗಳು",
-  navAdmin: "ನಿರ್ವಹಣೆ ಫಲಕ",
-  commandCenter: "ಕಮಾಂಡ್ ಸೆಂಟರ್",
-  onDuty: "ಕರ್ತವ್ಯದಲ್ಲಿದ್ದಾರೆ",
-  loadingProfile: "ಪ್ರೊಫೈಲ್ ಲೋಡ್ ಆಗುತ್ತಿದೆ",
-  notificationCenter: "ಅಧಿಸೂಚನೆ ಕೇಂದ್ರ",
-  openNotifications: "ಅಧಿಸೂಚನೆಗಳನ್ನು ತೆರೆಯಿರಿ",
-});
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [dateRange, setDateRange] = useState<DateRange>("7d");

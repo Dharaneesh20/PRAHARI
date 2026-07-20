@@ -69,10 +69,15 @@ def complete_chat(
     extra_body: Optional[Dict[str, Any]] = None,
     stream: bool = False,
     timeout: float = 12.0,
+    model_override: Optional[str] = None,
 ) -> Any:
     """
     Executes a chat completion across NVIDIA API models with fallback to Groq and local servers.
     Fast model failover via max_retries=0 and robust connect/read timeouts.
+
+    Args:
+        model_override: If set, try this specific NVIDIA model first (used for vision models in OCR).
+                        Falls back to the normal chain if this model also fails.
     """
     errors = []
     
@@ -86,8 +91,15 @@ def complete_chat(
         try:
             from openai import OpenAI
             client = OpenAI(base_url=NVIDIA_BASE_URL, api_key=nvidia_key, max_retries=0, timeout=httpx_timeout)
-            
-            for model_name in NVIDIA_MODELS:
+
+            # If a specific model is requested (e.g., vision model for OCR), try it first
+            model_list = NVIDIA_MODELS[:]
+            if model_override and model_override not in model_list:
+                model_list = [model_override] + model_list
+            elif model_override and model_override in model_list:
+                model_list = [model_override] + [m for m in model_list if m != model_override]
+
+            for model_name in model_list:
                 try:
                     kwargs = {
                         "model": model_name,
