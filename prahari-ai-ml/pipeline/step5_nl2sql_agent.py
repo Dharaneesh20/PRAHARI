@@ -178,6 +178,9 @@ BUSINESS GLOSSARY (Karnataka Police FIR data):
   cstype = 'A' for chargesheeted cases.
 
 - Key joins: CaseMaster.PoliceStationID -> Unit.UnitID -> Unit.DistrictID ->
+  District.DistrictID.
+
+- IMPORTANT — Date & Year columns: In CaseMaster table, the date column is `CrimeRegisteredDate` (TIMESTAMP/DATE) and year column is `CrimeYear` (INTEGER). There is NO `FIRDate` or `FIRYear` column on CaseMaster. On fact_crime_agg, use `CrimeYear` (INTEGER).
   District.DistrictID. CaseMaster.CrimeMajorHeadID -> CrimeHead.CrimeHeadID.
   CaseMaster.PolicePersonID -> Employee.EmployeeID.
 
@@ -404,9 +407,12 @@ Rules:{rbac_rule}
 
     # Extract query starting at first SELECT or WITH keyword
     match = re.search(r'\b(SELECT|WITH)\b.*', cleaned, flags=re.DOTALL | re.IGNORECASE)
-    if match:
-        return match.group(0).strip()
-    return cleaned
+    sql = match.group(0).strip() if match else cleaned
+
+    # Auto-correct common column hallucinations (e.g. FIRDate -> CrimeRegisteredDate)
+    sql = re.sub(r'\bFIRDate\b', 'CrimeRegisteredDate', sql, flags=re.IGNORECASE)
+    sql = re.sub(r'\bFIRYear\b', 'CrimeYear', sql, flags=re.IGNORECASE)
+    return sql
 
 
 # ======================================================================
