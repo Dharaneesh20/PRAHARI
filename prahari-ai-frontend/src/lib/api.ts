@@ -310,8 +310,50 @@ export const ml = {
   forecast: (district: string, crime_group: string) =>
     apiFetch<unknown>(`/api/v1/crime/forecast?district=${encodeURIComponent(district)}&crime_group=${encodeURIComponent(crime_group)}`),
 
-  forecastBenchmarks: (district: string, crime_group: string) =>
-    apiFetch<unknown>(`/api/v1/crime/forecast/benchmarks?district=${encodeURIComponent(district)}&crime_group=${encodeURIComponent(crime_group)}`),
+  zia: {
+    speechToText: async (audioBlob: Blob, language = "kn-IN") => {
+      const formData = new FormData();
+      formData.append("file", audioBlob, "speech.wav");
+      formData.append("language", language);
+      const token = getToken();
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch(`${BASE_URL}/api/v1/zia/speech-to-text`, {
+        method: "POST",
+        headers,
+        body: formData,
+      });
+      if (!res.ok) throw new Error("STT failed");
+      return res.json() as Promise<{ text: string; detected_language: string; provider: string }>;
+    },
+
+    textToSpeech: async (text: string, language = "kn-IN") => {
+      const token = getToken();
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch(`${BASE_URL}/api/v1/zia/text-to-speech`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ text, language }),
+      });
+      if (!res.ok) throw new Error("TTS failed");
+      const contentType = res.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        return null;
+      }
+      const blob = await res.blob();
+      return URL.createObjectURL(blob);
+    },
+
+    translate: async (text: string, target_lang = "kn-IN") => {
+      return apiFetch<{ translated_text: string; source_lang: string; target_lang: string }>("/api/v1/zia/translate", {
+        method: "POST",
+        body: JSON.stringify({ text, target_lang }),
+      });
+    },
+  },
 
   exportPdf: async (sessionId: string | number) => {
     const token = getToken();

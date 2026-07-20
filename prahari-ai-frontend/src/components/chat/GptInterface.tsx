@@ -2,8 +2,9 @@ import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Paperclip, Database,
-  ArrowUp, Mic, Camera, Check, Loader2,
-  Plus, MessageSquare, Brain, ChevronDown, ChevronRight, Download
+  ArrowUp, Mic, MicOff, Camera, Check, Loader2,
+  Plus, MessageSquare, Brain, ChevronDown, ChevronRight, Download,
+  Volume2, VolumeX, Globe
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -109,6 +110,12 @@ export default function GptInterface() {
   const [sendState, setSendState] = useState<SendState>("idle");
   const [isListening, setIsListening] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
+  const [selectedLang, setSelectedLang] = useState<"en-IN" | "kn-IN">("en-IN");
+  const [isRecording, setIsRecording] = useState(false);
+  const [isPlayingAudio, setIsPlayingAudio] = useState<number | null>(null);
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   // Modal / sheet states
   const [showAttach, setShowAttach] = useState(false);
@@ -126,6 +133,79 @@ export default function GptInterface() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chat, sendState]);
+
+  const startVoiceRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/wav" });
+        try {
+          setIsListening(true);
+          const sttRes = await ml.zia.speechToText(audioBlob, selectedLang);
+          if (sttRes && sttRes.text) {
+            setMessage(sttRes.text);
+            handleSend(undefined, sttRes.text);
+          }
+        } catch (e) {
+          console.error("Zia STT processing error", e);
+        } finally {
+          setIsListening(false);
+          setIsRecording(false);
+          stream.getTracks().forEach(track => track.stop());
+        }
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setShowMicConsent(false);
+    } catch (err) {
+      console.error("Mic access failed", err);
+      alert("Microphone access denied or unsupported browser.");
+    }
+  };
+
+  const stopVoiceRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+    }
+  };
+
+  const handlePlayTTS = async (idx: number, text: string) => {
+    if (isPlayingAudio === idx) {
+      setIsPlayingAudio(null);
+      if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+      return;
+    }
+    setIsPlayingAudio(idx);
+    try {
+      const audioUrl = await ml.zia.textToSpeech(text, selectedLang);
+      if (audioUrl) {
+        const audio = new Audio(audioUrl);
+        audio.onended = () => setIsPlayingAudio(null);
+        audio.play();
+      } else if ("speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+        const cleanText = text.replace(/[*#_`|]/g, "").slice(0, 300);
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+        utterance.lang = selectedLang;
+        utterance.onend = () => setIsPlayingAudio(null);
+        window.speechSynthesis.speak(utterance);
+      }
+    } catch (e) {
+      console.error("TTS playback failed", e);
+      setIsPlayingAudio(null);
+    }
+  };
 
   const fetchSessions = async () => {
     try {
@@ -233,12 +313,7 @@ export default function GptInterface() {
 
   const handleMicConfirm = async () => {
     setShowMicConsent(false);
-    try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-      setMicGranted(true);
-      setIsListening(true);
-      setTimeout(() => setIsListening(false), 5000);
-    } catch { }
+    startVoiceRecording();
   };
 
   const handleExportPdf = async () => {
@@ -279,21 +354,93 @@ export default function GptInterface() {
 
       {/* ── Main Chat Area ───────────────────────────────────── */}
       <div className="flex-1 flex flex-col h-full w-full max-w-4xl mx-auto p-4 md:p-6 relative">
-        {chat.length > 0 && (
-          <div className="flex justify-end pb-2">
-            <button
-              onClick={handleExportPdf}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition backdrop-blur-md"
-              style={{
-                background: "rgba(201,162,39,0.15)",
-                color: "#C9A227",
-                border: "1px solid rgba(201,162,39,0.3)"
-              }}
-            >
-              <Download className="w-3.5 h-3.5" /> Export PDF Report
-            </button>
+        <div className="flex items-center justify-between gap-3 pb-3 border-b border-white/10 mb-2 flex-wrap">
+          {/* Zoho Catalyst Zia Badge */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-white/10 bg-black/40 text-xs font-mono text-white/80">
+            <img src="/catalyst.svg" alt="Catalyst" className="w-4 h-4 inline" />
+            <img src="/zoho-logo-darkbg.svg" alt="Zoho" className="h-3.5 inline opacity-90" />
+            <span className="text-[10px] text-amber-400 font-semibold uppercase tracking-wider ml-0.5">Zia Services</span>
           </div>
-        )}
+
+          <div className="flex items-center gap-2">
+            {/* Language Selector */}
+            <div className="flex items-center gap-1 bg-black/40 border border-white/10 rounded-xl p-1 text-xs">
+              <button
+                type="button"
+                onClick={() => setSelectedLang("en-IN")}
+                className={`px-2.5 py-1 rounded-lg font-semibold transition ${selectedLang === "en-IN" ? "bg-[#C9A227] text-black shadow-sm" : "text-white/60 hover:text-white"}`}
+              >
+                🇬🇧 EN
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedLang("kn-IN")}
+                className={`px-2.5 py-1 rounded-lg font-semibold transition ${selectedLang === "kn-IN" ? "bg-[#C9A227] text-black shadow-sm" : "text-white/60 hover:text-white"}`}
+              >
+                🇮🇳 ಕನ್ನಡ KN
+              </button>
+            </div>
+
+            {chat.length > 0 && (
+              <button
+                onClick={handleExportPdf}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition backdrop-blur-md"
+                style={{
+                  background: "rgba(201,162,39,0.15)",
+                  color: "#C9A227",
+                  border: "1px solid rgba(201,162,39,0.3)"
+                }}
+              >
+                <Download className="w-3.5 h-3.5" /> Export PDF
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Voice Input Modal Overlay when Recording */}
+        <AnimatePresence>
+          {(isRecording || isListening) && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="mb-3 p-4 rounded-2xl border border-amber-500/40 bg-black/80 backdrop-blur-xl shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-4 z-20"
+            >
+              <div className="flex items-center gap-3">
+                <div className="relative flex items-center justify-center">
+                  <span className="w-10 h-10 rounded-full bg-red-500/20 animate-ping absolute" />
+                  <div className="w-8 h-8 rounded-full bg-red-600 flex items-center justify-center text-white relative z-10 shadow-lg">
+                    <Mic className="w-4 h-4 animate-pulse" />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm text-white">
+                      {isListening ? "Processing STT..." : "Listening..."}
+                    </span>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 font-mono">
+                      {selectedLang === "kn-IN" ? "ಕನ್ನಡ (kn-IN)" : "English (en-IN)"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[11px] text-slate-300 mt-1">
+                    <span>Powered by</span>
+                    <img src="/zoho-logo-darkbg.svg" alt="Zoho" className="h-3.5 inline" />
+                    <img src="/catalyst.svg" alt="Catalyst" className="w-3.5 h-3.5 inline ml-0.5" />
+                    <span className="font-semibold text-amber-400">Zoho Catalyst Zia Services</span>
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={stopVoiceRecording}
+                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs shadow-lg transition flex items-center gap-1.5"
+              >
+                <Check className="w-3.5 h-3.5" /> Stop & Transcribe
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <div className="flex-1 overflow-y-auto overflow-x-visible px-2 sm:px-6 flex flex-col gap-6 py-4 scrollbar-hide">
           {chat.length === 0 ? (
             <motion.div
@@ -387,9 +534,35 @@ export default function GptInterface() {
                       <>
                         <ThinkingBlock thinking={msg.thinking} isStreaming={sendState === "thinking" && !msg.text} />
                         {msg.text ? (
-                          <div className="prose prose-sm dark:prose-invert max-w-none text-white prose-p:leading-relaxed prose-th:text-white prose-td:text-white/80 prose-table:border-collapse prose-th:border prose-th:border-white/20 prose-th:p-2 prose-td:border prose-td:border-white/10 prose-td:p-2">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
-                          </div>
+                          <>
+                            <div className="prose prose-sm dark:prose-invert max-w-none text-white prose-p:leading-relaxed prose-th:text-white prose-td:text-white/80 prose-table:border-collapse prose-th:border prose-th:border-white/20 prose-th:p-2 prose-td:border prose-td:border-white/10 prose-td:p-2">
+                              <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
+                            </div>
+                            <div className="mt-3 pt-2 border-t border-white/10 flex items-center justify-between">
+                              <button
+                                type="button"
+                                onClick={() => handlePlayTTS(idx, msg.text)}
+                                title="Read Aloud via Zoho Catalyst Zia Voice"
+                                className="text-xs font-semibold inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition"
+                              >
+                                {isPlayingAudio === idx ? (
+                                  <>
+                                    <VolumeX className="w-3.5 h-3.5 text-amber-400 animate-spin" />
+                                    <span className="text-[11px] text-amber-400">Stop Voice</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Volume2 className="w-3.5 h-3.5 text-amber-400" />
+                                    <span className="text-[11px]">Read Aloud</span>
+                                  </>
+                                )}
+                              </button>
+                              <div className="flex items-center gap-1 text-[10px] text-white/40 font-mono">
+                                <img src="/catalyst.svg" alt="Catalyst" className="w-3 h-3 inline" />
+                                <span>Zia Voice</span>
+                              </div>
+                            </div>
+                          </>
                         ) : (
                           <div className="flex gap-1.5 items-center py-1">
                             <div className="w-1.5 h-1.5 rounded-full bg-[#C9A227] animate-bounce" />

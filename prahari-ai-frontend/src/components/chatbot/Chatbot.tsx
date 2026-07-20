@@ -142,10 +142,11 @@ function Chatbot() {
                   <h3 className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
                     Prahari AI <Sparkles className="w-3 h-3 text-blue-500" />
                   </h3>
-                  <p className="text-[10px] text-green-600 dark:text-green-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                    Online
-                  </p>
+                  <div className="flex items-center gap-1.5 text-[10px] text-amber-500 font-semibold tracking-wider">
+                    <img src="/catalyst.svg" alt="Catalyst" className="w-3 h-3 inline" />
+                    <img src="/zoho-logo-darkbg.svg" alt="Zoho" className="h-2.5 inline" />
+                    <span>Zia Voice</span>
+                  </div>
                 </div>
               </div>
               <button 
@@ -174,9 +175,11 @@ function Chatbot() {
                       <>
                         <ThinkingBlock thinking={msg.thinking} isStreaming={isLoading && !msg.text} />
                         {msg.text ? (
-                          <div className="prose prose-sm dark:prose-invert max-w-none prose-table:border-collapse prose-th:border prose-th:border-slate-300 dark:prose-th:border-white/20 prose-th:p-1.5 prose-td:border prose-td:border-slate-200 dark:prose-td:border-white/10 prose-td:p-1.5">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
-                          </div>
+                          <>
+                            <div className="prose prose-sm dark:prose-invert max-w-none prose-table:border-collapse prose-th:border prose-th:border-slate-300 dark:prose-th:border-white/20 prose-th:p-1.5 prose-td:border prose-td:border-slate-200 dark:prose-td:border-white/10 prose-td:p-1.5">
+                              <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
+                            </div>
+                          </>
                         ) : (
                           <div className="flex items-center gap-2 text-slate-400 py-1">
                             <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
