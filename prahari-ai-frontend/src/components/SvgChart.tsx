@@ -19,10 +19,10 @@ export function SvgAreaChart({
   const pathRef = useRef<SVGPathElement>(null);
   const areaRef = useRef<SVGPathElement>(null);
 
-  const W = 100; // % units — let SVG viewBox scale
-  const H = height;
-  const PAD = { top: 10, right: 0, bottom: showLabels ? 22 : 4, left: 0 };
-  const chartH = H - PAD.top - PAD.bottom;
+  const labelHeight = showLabels ? 24 : 0;
+  const svgH = Math.max(40, height - labelHeight);
+  const PAD = { top: 8, bottom: 4 };
+  const chartH = svgH - PAD.top - PAD.bottom;
 
   const values = data.map(d => d.value);
   const max = Math.max(...values, 1);
@@ -31,7 +31,7 @@ export function SvgAreaChart({
 
   // Map to pixel coords using percentage widths
   const pts = data.map((d, i) => ({
-    x: data.length === 1 ? 50 : (i / (data.length - 1)) * 100,
+    x: data.length <= 1 ? 50 : (i / (data.length - 1)) * 100,
     y: PAD.top + chartH - ((d.value - min) / range) * chartH,
   }));
 
@@ -43,7 +43,7 @@ export function SvgAreaChart({
     return `${acc} C ${cp} ${prev.y} ${cp} ${p.y} ${p.x} ${p.y}`;
   }, "");
 
-  const areaPath = `${linePath} L ${pts[pts.length - 1].x} ${H - PAD.bottom} L ${pts[0].x} ${H - PAD.bottom} Z`;
+  const areaPath = `${linePath} L ${pts[pts.length - 1].x} ${svgH - PAD.bottom} L ${pts[0].x} ${svgH - PAD.bottom} Z`;
 
   // Animate draw-in via stroke-dashoffset
   useEffect(() => {
@@ -66,48 +66,48 @@ export function SvgAreaChart({
   const labelEvery = data.length > 20 ? 7 : data.length > 10 ? 4 : 1;
 
   return (
-    <svg viewBox={`0 0 100 ${H}`} preserveAspectRatio="none" width="100%" height={H} style={{ overflow: "visible" }}>
-      <defs>
-        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.35" />
-          <stop offset="100%" stopColor={color} stopOpacity="0.02" />
-        </linearGradient>
-      </defs>
+    <div className="w-full flex flex-col justify-between" style={{ height }}>
+      <div className="relative w-full flex-1 min-h-0">
+        <svg
+          viewBox={`0 0 100 ${svgH}`}
+          preserveAspectRatio="none"
+          className="w-full h-full overflow-visible"
+        >
+          <defs>
+            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity="0.38" />
+              <stop offset="100%" stopColor={color} stopOpacity="0.02" />
+            </linearGradient>
+          </defs>
 
-      {/* Grid lines */}
-      {showGrid && gridLines.map((frac) => (
-        <line
-          key={frac}
-          x1="0" x2="100"
-          y1={PAD.top + chartH * (1 - frac)}
-          y2={PAD.top + chartH * (1 - frac)}
-          stroke="rgba(255,255,255,0.06)" strokeWidth="0.5"
-        />
-      ))}
+          {/* Grid lines */}
+          {showGrid && gridLines.map((frac) => (
+            <line
+              key={frac}
+              x1="0" x2="100"
+              y1={PAD.top + chartH * (1 - frac)}
+              y2={PAD.top + chartH * (1 - frac)}
+              stroke="rgba(255,255,255,0.06)" strokeWidth="0.5"
+            />
+          ))}
 
-      {/* Area fill */}
-      <path ref={areaRef} d={areaPath} fill={`url(#${gradId})`} />
+          {/* Area fill */}
+          <path ref={areaRef} d={areaPath} fill={`url(#${gradId})`} />
 
-      {/* Line */}
-      <path ref={pathRef} d={linePath} fill="none" stroke={color} strokeWidth="0.8" strokeLinecap="round" strokeLinejoin="round" />
+          {/* Line */}
+          <path ref={pathRef} d={linePath} fill="none" stroke={color} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </div>
 
-      {/* Labels */}
-      {showLabels && data.map((d, i) => {
-        if (i % labelEvery !== 0 && i !== data.length - 1) return null;
-        return (
-          <text
-            key={i}
-            x={pts[i].x} y={H - 2}
-            textAnchor="middle" fontSize="3.5" fill="rgba(255,255,255,0.3)"
-            style={{ fontFamily: "Inter, sans-serif" }}
-          >
-            {d.label}
-          </text>
-        );
-      })}
-
-      {/* Data dots on hover would require foreignObject — skip for perf */}
-    </svg>
+      {showLabels && (
+        <div className="flex justify-between items-center px-1 pt-2 text-[11px] font-mono text-slate-400/70 select-none">
+          {data.map((d, i) => {
+            if (i % labelEvery !== 0 && i !== data.length - 1) return null;
+            return <span key={i}>{d.label}</span>;
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -121,30 +121,35 @@ export function SvgBarChart({ data, height = 140, maxVal }: SvgBarChartProps) {
   const max = maxVal ?? Math.max(...data.map(d => d.value), 1);
   const barW = 80 / data.length;
   const gap = 20 / (data.length + 1);
-  const chartH = height - 28;
+  const svgH = height - 24;
 
   return (
-    <svg viewBox={`0 0 100 ${height}`} width="100%" height={height}>
-      {data.map((d, i) => {
-        const barH = (d.value / max) * chartH;
-        const x = gap * (i + 1) + barW * i;
-        const y = chartH - barH + 4;
-        const color = d.color ?? "#C9A227";
-        return (
-          <g key={i}>
-            <rect
-              x={x} y={chartH + 4} width={barW} height={barH}
-              fill={color} fillOpacity="0.3" rx="1"
-              style={{ transition: "height 0.8s cubic-bezier(0.34,1.56,0.64,1), y 0.8s cubic-bezier(0.34,1.56,0.64,1)" }}
-            />
-            <rect x={x} y={y} width={barW} height={barH} fill={color} fillOpacity="0.8" rx="1" />
-            <text x={x + barW / 2} y={height - 2} textAnchor="middle" fontSize="3.5" fill="rgba(255,255,255,0.4)">
-              {d.label.length > 6 ? d.label.slice(0, 5) + "…" : d.label}
-            </text>
-          </g>
-        );
-      })}
-    </svg>
+    <div className="w-full flex flex-col justify-between" style={{ height }}>
+      <div className="relative w-full flex-1 min-h-0">
+        <svg viewBox={`0 0 100 ${svgH}`} width="100%" height="100%" preserveAspectRatio="none">
+          {data.map((d, i) => {
+            const barH = (d.value / max) * (svgH - 8);
+            const x = gap * (i + 1) + barW * i;
+            const y = svgH - barH - 2;
+            const color = d.color ?? "#C9A227";
+            return (
+              <g key={i}>
+                <rect
+                  x={x} y={y} width={barW} height={barH}
+                  fill={color} fillOpacity="0.8" rx="1"
+                  style={{ transition: "height 0.8s cubic-bezier(0.34,1.56,0.64,1), y 0.8s cubic-bezier(0.34,1.56,0.64,1)" }}
+                />
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+      <div className="flex justify-between items-center px-1 pt-2 text-[10px] font-mono text-slate-400/70 select-none">
+        {data.map((d, i) => (
+          <span key={i} className="truncate max-w-[50px] text-center">{d.label}</span>
+        ))}
+      </div>
+    </div>
   );
 }
 
