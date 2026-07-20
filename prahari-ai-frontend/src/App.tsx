@@ -4,10 +4,8 @@ import DashboardLayout from "./layouts/DashboardLayout";
 import PrahariBot from "./pages/PrahariBot";
 import KpiDashboard from "./pages/KpiDashboard";
 import CrimeMap from "./pages/CrimeMap";
-import LiveIncidents from "./pages/LiveIncidents";
 import Analytics from "./pages/Analytics";
 import Reports from "./pages/Reports";
-import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 import { ThemeProvider } from "./components/theme-provider";
 import { DashboardProvider } from "./context/DashboardContext";
@@ -15,7 +13,6 @@ import PageTransition from "./components/PageTransition";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminPanel from "./pages/AdminPanel";
 
-// Inner component to use useLocation inside BrowserRouter
 function AppRoutes() {
   const location = useLocation();
 
@@ -25,7 +22,7 @@ function AppRoutes() {
         {/* Login — no layout shell */}
         <Route path="/login" element={<Login />} />
 
-        {/* Default route redirects to dashboard if authenticated, otherwise ProtectedRoute redirects to login */}
+        {/* Default route redirects to dashboard if authenticated */}
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
         {/* Prahari AI Bot */}
@@ -55,16 +52,6 @@ function AppRoutes() {
           </ProtectedRoute>
         } />
 
-        {/* Live Incidents */}
-        <Route path="/incidents" element={
-          <ProtectedRoute>
-            <DashboardLayout>
-              <PageTransition><LiveIncidents /></PageTransition>
-            </DashboardLayout>
-          </ProtectedRoute>
-        } />
-
-
         {/* Analytics */}
         <Route path="/analytics" element={
           <ProtectedRoute>
@@ -83,15 +70,6 @@ function AppRoutes() {
           </ProtectedRoute>
         } />
 
-        {/* Settings */}
-        <Route path="/settings" element={
-          <ProtectedRoute>
-            <DashboardLayout>
-              <PageTransition><Settings /></PageTransition>
-            </DashboardLayout>
-          </ProtectedRoute>
-        } />
-        
         {/* Admin Panel */}
         <Route path="/admin" element={
           <ProtectedRoute>
