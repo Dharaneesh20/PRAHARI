@@ -170,13 +170,15 @@ class BenchmarkResponse(BaseModel):
 # ── NL2SQL ────────────────────────────────────────────────────────────────────
 class NL2SQLRequest(BaseModel):
     question: str
-    session_id: Optional[int] = None
+    role: str
+    scope_id: Optional[int] = None
+    session_id: Optional[str] = None
 
 
 class NL2SQLResponse(BaseModel):
     status: str
     question: str
-    session_id: Optional[int] = None
+    session_id: Optional[str] = None
     route: str
     sql: str
     rows_returned: int
