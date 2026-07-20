@@ -231,54 +231,57 @@ export default function CrimeMap() {
         </button>
       </div>
 
-      {/* ── Category Quick Filter Bar (Top Right) ───────────── */}
-      <div className="absolute top-4 right-16 z-[400] hidden md:flex items-center gap-1.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl p-1.5 rounded-xl border border-slate-200 dark:border-white/10 shadow-xl text-xs font-bold">
+      {/* ── Top Right Controls: Category Quick Filters & Filter Button ── */}
+      <div className="absolute top-4 right-4 z-[400] flex items-center gap-2 flex-wrap justify-end">
+        {/* Category Quick Filter Bar */}
+        <div className="hidden md:flex items-center gap-1 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl p-1 rounded-xl border border-slate-200 dark:border-white/10 shadow-xl text-xs font-bold">
+          <button
+            type="button"
+            onClick={() => setSelectedCategoryFilter("ALL")}
+            className={`px-2.5 py-1 rounded-lg transition ${selectedCategoryFilter === "ALL" ? "bg-slate-900 dark:bg-white text-white dark:text-black shadow-sm" : "text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white"}`}
+          >
+            All
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedCategoryFilter("THEFT")}
+            className={`px-2.5 py-1 rounded-lg transition flex items-center gap-1.5 ${selectedCategoryFilter === "THEFT" ? "bg-amber-500 text-black shadow-sm font-extrabold" : "text-slate-700 dark:text-white/70 hover:text-amber-500"}`}
+          >
+            <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" /> Theft
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedCategoryFilter("BURGLARY")}
+            className={`px-2.5 py-1 rounded-lg transition flex items-center gap-1.5 ${selectedCategoryFilter === "BURGLARY" ? "bg-orange-500 text-black shadow-sm font-extrabold" : "text-slate-700 dark:text-white/70 hover:text-orange-500"}`}
+          >
+            <span className="w-2 h-2 rounded-full bg-orange-500 inline-block" /> Burglary
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedCategoryFilter("VIOLENT")}
+            className={`px-2.5 py-1 rounded-lg transition flex items-center gap-1.5 ${selectedCategoryFilter === "VIOLENT" ? "bg-red-500 text-white shadow-sm font-extrabold" : "text-slate-700 dark:text-white/70 hover:text-red-500"}`}
+          >
+            <span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> Violent
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedCategoryFilter("CYBER")}
+            className={`px-2.5 py-1 rounded-lg transition flex items-center gap-1.5 ${selectedCategoryFilter === "CYBER" ? "bg-cyan-500 text-black shadow-sm font-extrabold" : "text-slate-700 dark:text-white/70 hover:text-cyan-500"}`}
+          >
+            <span className="w-2 h-2 rounded-full bg-cyan-500 inline-block" /> Cyber
+          </button>
+        </div>
+
+        {/* Filter Toggle Button */}
         <button
           type="button"
-          onClick={() => setSelectedCategoryFilter("ALL")}
-          className={`px-3 py-1.5 rounded-lg transition ${selectedCategoryFilter === "ALL" ? "bg-slate-900 dark:bg-white text-white dark:text-black shadow-sm" : "text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white"}`}
+          onClick={() => setShowFilters(!showFilters)}
+          className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-xs font-bold shadow-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition"
         >
-          All
-        </button>
-        <button
-          type="button"
-          onClick={() => setSelectedCategoryFilter("THEFT")}
-          className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${selectedCategoryFilter === "THEFT" ? "bg-amber-500 text-black shadow-sm font-extrabold" : "text-slate-700 dark:text-white/70 hover:text-amber-500"}`}
-        >
-          <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" /> Theft
-        </button>
-        <button
-          type="button"
-          onClick={() => setSelectedCategoryFilter("BURGLARY")}
-          className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${selectedCategoryFilter === "BURGLARY" ? "bg-orange-500 text-black shadow-sm font-extrabold" : "text-slate-700 dark:text-white/70 hover:text-orange-500"}`}
-        >
-          <span className="w-2.5 h-2.5 rounded-full bg-orange-500 inline-block" /> Burglary
-        </button>
-        <button
-          type="button"
-          onClick={() => setSelectedCategoryFilter("VIOLENT")}
-          className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${selectedCategoryFilter === "VIOLENT" ? "bg-red-500 text-white shadow-sm font-extrabold" : "text-slate-700 dark:text-white/70 hover:text-red-500"}`}
-        >
-          <span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block" /> Violent
-        </button>
-        <button
-          type="button"
-          onClick={() => setSelectedCategoryFilter("CYBER")}
-          className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${selectedCategoryFilter === "CYBER" ? "bg-cyan-500 text-black shadow-sm font-extrabold" : "text-slate-700 dark:text-white/70 hover:text-cyan-500"}`}
-        >
-          <span className="w-2.5 h-2.5 rounded-full bg-cyan-500 inline-block" /> Cyber
+          <SlidersHorizontal className="w-4 h-4" />
+          <span>Filter</span>
         </button>
       </div>
-
-      {/* ── Filter Toggle Button ─────────────────────────────── */}
-      <button
-        type="button"
-        onClick={() => setShowFilters(!showFilters)}
-        className="absolute top-4 right-4 z-[400] flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-xs font-bold shadow-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-      >
-        <SlidersHorizontal className="w-4 h-4" />
-        <span className="hidden sm:inline">Filter</span>
-      </button>
 
       {/* ── High Contrast Filter Panel Drawer ────────────────── */}
       <AnimatePresence>
