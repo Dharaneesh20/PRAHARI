@@ -40,22 +40,47 @@ function AnimatedHeadline({ text }: { text: string }) {
   );
 }
 
+function parseMessageContent(rawText: string, rawThinking?: string) {
+  let text = rawText || "";
+  let thinking = rawThinking || "";
+
+  if (text.includes("<think>")) {
+    const thinkMatch = text.match(/<think>([\s\S]*?)<\/think>/);
+    if (thinkMatch) {
+      if (!thinking) thinking = thinkMatch[1].trim();
+      text = text.replace(/<think>[\s\S]*?<\/think>/, "").trim();
+    } else {
+      const openMatch = text.match(/<think>([\s\S]*)/);
+      if (openMatch) {
+        if (!thinking) thinking = openMatch[1].trim();
+        text = text.replace(/<think>[\s\S]*/, "").trim();
+      }
+    }
+  }
+  return { text, thinking };
+}
+
 function ThinkingBlock({ thinking, isStreaming }: { thinking?: string; isStreaming?: boolean }) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
+
+  useEffect(() => {
+    if (isStreaming) setIsOpen(true);
+  }, [isStreaming]);
+
   if (!thinking) return null;
   return (
-    <div className="mb-3 rounded-xl border border-white/10 bg-black/30 overflow-hidden text-xs">
-      <button type="button" onClick={() => setIsOpen(!isOpen)} className="w-full flex items-center justify-between px-3 py-2 text-white/70 hover:text-white hover:bg-white/5 transition-colors font-mono text-left">
+    <div className="mb-3 rounded-xl border border-amber-500/25 bg-black/50 overflow-hidden text-xs shadow-md">
+      <button type="button" onClick={() => setIsOpen(!isOpen)} className="w-full flex items-center justify-between px-3 py-2 text-amber-300/90 hover:text-amber-200 hover:bg-white/5 transition-colors font-mono text-left">
         <div className="flex items-center gap-2">
-          <Brain className="w-3.5 h-3.5 text-[#C9A227]" />
-          <span className="font-semibold text-white/80">Thought process</span>
+          <Brain className="w-3.5 h-3.5 text-[#C9A227] animate-pulse" />
+          <span className="font-bold text-amber-400/90 text-xs">Thought process (Internal AI Reasoning)</span>
           {isStreaming && <span className="inline-flex gap-1 items-center ml-1"><span className="w-1.5 h-1.5 rounded-full bg-[#C9A227] animate-ping" /></span>}
         </div>
-        {isOpen ? <ChevronDown className="w-3.5 h-3.5 text-white/50" /> : <ChevronRight className="w-3.5 h-3.5 text-white/50" />}
+        {isOpen ? <ChevronDown className="w-3.5 h-3.5 text-amber-400/60" /> : <ChevronRight className="w-3.5 h-3.5 text-amber-400/60" />}
       </button>
       <AnimatePresence>
         {isOpen && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="px-3.5 py-2.5 border-t border-white/5 bg-black/40 font-mono text-white/60 whitespace-pre-wrap leading-relaxed max-h-60 overflow-y-auto text-[11px]">
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="px-3.5 py-2.5 border-t border-amber-500/10 bg-black/60 font-mono text-amber-200/70 whitespace-pre-wrap leading-relaxed max-h-60 overflow-y-auto text-[11px]">
             {thinking}
           </motion.div>
         )}

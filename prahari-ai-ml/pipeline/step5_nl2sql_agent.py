@@ -396,9 +396,17 @@ Rules:{rbac_rule}
         max_tokens=1000,
         temperature=0,
     )
-    sql = resp.choices[0].message.content.strip()
-    sql = re.sub(r"^```sql\s*|\s*```$", "", sql, flags=re.IGNORECASE | re.MULTILINE).strip()
-    return sql
+    raw_content = resp.choices[0].message.content.strip()
+    # Remove <think>...</think> tags if present
+    cleaned = re.sub(r'<think>.*?</think>', '', raw_content, flags=re.DOTALL | re.IGNORECASE).strip()
+    # Remove markdown code block markers
+    cleaned = re.sub(r"```(?:sql)?", "", cleaned, flags=re.IGNORECASE).replace("```", "").strip()
+
+    # Extract query starting at first SELECT or WITH keyword
+    match = re.search(r'\b(SELECT|WITH)\b.*', cleaned, flags=re.DOTALL | re.IGNORECASE)
+    if match:
+        return match.group(0).strip()
+    return cleaned
 
 
 # ======================================================================
@@ -411,7 +419,16 @@ FUNCTION_FROM_PATTERN = re.compile(
 
 
 def validate_sql(sql: str) -> tuple[bool, str]:
-    stripped = sql.strip().rstrip(";")
+    # Strip <think> tags and code fences if present
+    cleaned = re.sub(r'<think>.*?</think>', '', sql, flags=re.DOTALL | re.IGNORECASE).strip()
+    cleaned = re.sub(r"```(?:sql)?", "", cleaned, flags=re.IGNORECASE).replace("```", "").strip()
+
+    match = re.search(r'\b(SELECT|WITH)\b.*', cleaned, flags=re.DOTALL | re.IGNORECASE)
+    if match:
+        stripped = match.group(0).strip().rstrip(";")
+    else:
+        stripped = cleaned.strip().rstrip(";")
+
     if not re.match(r"^\s*(SELECT|WITH)\b", stripped, re.IGNORECASE):
         return False, "Only SELECT/WITH queries are allowed."
     if FORBIDDEN_KEYWORDS.search(stripped):
@@ -426,8 +443,11 @@ def validate_sql(sql: str) -> tuple[bool, str]:
     # non-whitelisted table and rejects a perfectly valid query.
     table_scan_text = FUNCTION_FROM_PATTERN.sub(" ", stripped)
 
+    # Extract CTE defined aliases so CTE names like WITH filtered AS (...), total AS (...) are recognized
+    cte_names = set(re.findall(r"\b([A-Za-z_][A-Za-z0-9_]*)\s+AS\s*\(", stripped, re.IGNORECASE))
+
     referenced = set(re.findall(r"\b(?:FROM|JOIN)\s+([A-Za-z_][A-Za-z0-9_]*)", table_scan_text, re.IGNORECASE))
-    unknown = {t for t in referenced if t not in WHITELISTED_TABLES}
+    unknown = {t for t in referenced if t not in WHITELISTED_TABLES and t not in cte_names}
     if unknown:
         return False, f"Query references non-whitelisted table(s): {unknown}"
 
