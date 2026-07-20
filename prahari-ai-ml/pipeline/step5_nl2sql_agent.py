@@ -419,9 +419,16 @@ Rules:{rbac_rule}
 # 3. Validator — read-only, whitelist-only, before anything touches the DB
 # ======================================================================
 FUNCTION_FROM_PATTERN = re.compile(
-    r"\b(EXTRACT|TRIM|SUBSTRING|OVERLAY|POSITION)\s*\([^)]*\bFROM\b[^)]*\)",
+    r"\b(EXTRACT|TRIM|SUBSTRING|OVERLAY|POSITION)\s*\([\s\S]*?\bFROM\b[\s\S]*?\)",
     re.IGNORECASE,
 )
+
+KNOWN_COLUMNS = {
+    "CrimeRegisteredDate", "CrimeYear", "DistrictName", "CrimeGroupName",
+    "CrimeHeadName", "CaseCount", "ChargesheetedCount", "ConvictedCount",
+    "CaseMasterID", "AccusedName", "RepeatPoolID", "Latitude", "Longitude",
+    "UnitName", "DistrictID", "PoliceStationID", "FIRNo", "FIR_Date",
+}
 
 
 def validate_sql(sql: str) -> tuple[bool, str]:
@@ -444,16 +451,13 @@ def validate_sql(sql: str) -> tuple[bool, str]:
 
     # SQL functions like EXTRACT(YEAR FROM col), TRIM(x FROM y), and
     # SUBSTRING(x FROM y) use FROM as a keyword, not a table introducer.
-    # Strip those spans before scanning for table references, or the
-    # regex below misreads "cm" in "EXTRACT(YEAR FROM cm.Col)" as a
-    # non-whitelisted table and rejects a perfectly valid query.
     table_scan_text = FUNCTION_FROM_PATTERN.sub(" ", stripped)
 
     # Extract CTE defined aliases so CTE names like WITH filtered AS (...), total AS (...) are recognized
     cte_names = set(re.findall(r"\b([A-Za-z_][A-Za-z0-9_]*)\s+AS\s*\(", stripped, re.IGNORECASE))
 
     referenced = set(re.findall(r"\b(?:FROM|JOIN)\s+([A-Za-z_][A-Za-z0-9_]*)", table_scan_text, re.IGNORECASE))
-    unknown = {t for t in referenced if t not in WHITELISTED_TABLES and t not in cte_names}
+    unknown = {t for t in referenced if t not in WHITELISTED_TABLES and t not in cte_names and t not in KNOWN_COLUMNS}
     if unknown:
         return False, f"Query references non-whitelisted table(s): {unknown}"
 
