@@ -1,5 +1,6 @@
-# 🚨 PRAHARI AI (प्रहरी AI)
-> **AI-Powered Intelligence Copilot & Analytics Platform for Karnataka State Police**
+# 🚨 PRAHARI AI
+> **Proactive Response & Analytics Hub for Actionable Records & Investigation**
+> *AI-Powered Intelligence Copilot & Tactical Analytics Platform for Karnataka State Police*
 
 [![Python 3.12](https://img.shields.io/badge/Python-3.12-blue.svg)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688.svg)](https://fastapi.tiangolo.com)
@@ -12,7 +13,7 @@
 
 ## 🌟 What is PRAHARI AI & Speciality of the Project
 
-**PRAHARI AI** is a state-of-the-art Law Enforcement Intelligence & Decision-Support System engineered for police command staff, station house officers (SHOs), and data analysts across Karnataka State Police (KSP). It transforms raw First Information Reports (FIRs) into actionable tactical intelligence through natural language database queries, real-time spatio-temporal analytics, offender network mapping, and automated report generation.
+**PRAHARI AI** (**P**roactive **R**esponse & **A**nalytics **H**ub for **A**ctionable **R**ecords & **I**nvestigation) is a state-of-the-art Law Enforcement Intelligence & Decision-Support System engineered for police command staff, station house officers (SHOs), and data analysts across Karnataka State Police (KSP). It transforms raw First Information Reports (FIRs) into actionable tactical intelligence through natural language database queries, real-time spatio-temporal analytics, offender network mapping, and automated report generation.
 
 ### ✨ Key Specialities & Standout Features
 
