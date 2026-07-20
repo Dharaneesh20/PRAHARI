@@ -310,7 +310,7 @@ async def nl2sql_stream(
             session_id=session_id
         )
 
-        async for chunk in generator:
+        for chunk in generator:
             yield chunk
 
             # Extract token content to accumulate final answer
