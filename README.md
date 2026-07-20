@@ -171,8 +171,8 @@ npm run dev
       </a>
     </td>
     <td align="center" width="200">
-      <a href="https://github.com/anumitha5831">
-        <img src="https://github.com/anumitha5831.png" width="100px;" style="border-radius: 50%;" alt="Anumitha"/><br />
+      <a href="https://github.com/anumitha21">
+        <img src="https://github.com/anumitha1.png" width="100px;" style="border-radius: 50%;" alt="Anumitha"/><br />
         <br />
         <sub><b>Anumitha</b></sub><br />
         <sub><code>@anumitha21</code></sub><br />
