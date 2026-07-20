@@ -117,9 +117,16 @@ export default function Login() {
 
             {/* Role selector */}
             <div className="flex flex-col gap-2">
-              <label className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.4)" }}>
-                Access Role
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.4)" }}>
+                  Access Role
+                </label>
+                <div className="flex items-center gap-1 text-[10px] text-amber-400 font-mono">
+                  <img src="/catalyst.svg" alt="Catalyst" className="w-3.5 h-3.5 inline" />
+                  <img src="/zoho-logo-darkbg.svg" alt="Zoho" className="h-3 inline opacity-90" />
+                  <span className="font-semibold text-[10px] text-amber-400">Catalyst Authentication™</span>
+                </div>
+              </div>
               <div
                 className="grid grid-cols-3 gap-1.5 p-1 rounded-2xl"
                 style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
@@ -288,18 +295,26 @@ export default function Login() {
               </AnimatePresence>
             </div>
 
-            {/* Security note */}
+            {/* Security & Catalyst Authentication note */}
             <div
-              className="flex items-center gap-2 py-3 px-4 rounded-xl"
+              className="flex items-center gap-3 py-3 px-4 rounded-xl"
               style={{
                 background: "rgba(46,158,108,0.08)",
                 border: "1px solid rgba(46,158,108,0.2)",
               }}
             >
-              <ShieldCheck className="w-4 h-4 shrink-0" style={{ color: "#2E9E6C" }} />
-              <p className="text-[11px] leading-snug" style={{ color: "rgba(255,255,255,0.45)" }}>
-                All connections are encrypted via TLS 1.3. Audit-logged on the KSP blockchain ledger.
-              </p>
+              <ShieldCheck className="w-5 h-5 shrink-0 text-emerald-400" />
+              <div>
+                <p className="text-[11px] font-semibold text-white/90 leading-snug flex items-center gap-1.5 flex-wrap">
+                  <span>RBAC & User Auth powered by</span>
+                  <img src="/catalyst.svg" alt="Catalyst" className="w-3.5 h-3.5 inline" />
+                  <img src="/zoho-logo-darkbg.svg" alt="Zoho" className="h-3 inline opacity-90" />
+                  <span className="text-amber-400 font-bold">Catalyst Authentication™</span>
+                </p>
+                <p className="text-[10px] text-white/45 mt-0.5">
+                  TLS 1.3 Encrypted Session · Scoped Clearance Level 1 to Level 3
+                </p>
+              </div>
             </div>
           </motion.div>
         )}
