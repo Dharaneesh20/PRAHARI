@@ -5,6 +5,7 @@ import {
   ArrowUp, Mic, Camera, Check, Loader2,
   Plus, MessageSquare, Brain, ChevronDown, ChevronRight, Download,
   Volume2, VolumeX, Menu, X, ScanLine, ImageIcon, Zap,
+  Search, Pin, Star, Tag, Trash2, Edit3,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -12,6 +13,7 @@ import LiquidOrb from "../LiquidOrb";
 import ConsentSheet from "../ConsentSheet";
 import AttachmentModal from "../AttachmentModal";
 import { apiFetch, ml } from "../../lib/api";
+import type { ChatSessionItem } from "../../lib/types";
 
 const SUGGESTED_PROMPTS_EN = [
   { title: "Analyze Hotspots", emoji: "📍", text: "Show me high-risk crime zones in Koramangala for tonight.", desc: "Live crime density heat-map analysis" },
@@ -62,6 +64,99 @@ function ThinkingBlock({ thinking, isStreaming }: { thinking?: string; isStreami
   );
 }
 
+// ── Custom Tag Modal ───────────────────────────────────────────────────────────
+const TAG_PRESET_COLORS = [
+  { hex: "#3B82F6", name: "Blue" },
+  { hex: "#10B981", name: "Green" },
+  { hex: "#F59E0B", name: "Amber" },
+  { hex: "#EF4444", name: "Red" },
+  { hex: "#8B5CF6", name: "Purple" },
+  { hex: "#EC4899", name: "Pink" },
+];
+
+function TagModal({
+  isOpen,
+  session,
+  onClose,
+  onSave,
+}: {
+  isOpen: boolean;
+  session: ChatSessionItem | null;
+  onClose: () => void;
+  onSave: (label: string, color: string) => void;
+}) {
+  const [label, setLabel] = useState("");
+  const [color, setColor] = useState("#3B82F6");
+
+  useEffect(() => {
+    if (session) {
+      setLabel(session.tag_label || "");
+      setColor(session.tag_color || "#3B82F6");
+    }
+  }, [session]);
+
+  if (!isOpen || !session) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm p-4">
+      <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="w-full max-w-sm rounded-2xl border border-white/10 p-5 bg-[#0e1118] text-white shadow-2xl flex flex-col gap-4">
+        <div className="flex items-center justify-between border-b border-white/10 pb-3">
+          <div className="flex items-center gap-2">
+            <Tag className="w-4 h-4 text-[#C9A227]" />
+            <span className="font-bold text-sm">Add Custom Tag</span>
+          </div>
+          <button onClick={onClose} className="text-white/40 hover:text-white"><X className="w-4 h-4" /></button>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[11px] text-white/60 font-semibold uppercase tracking-wider">Tag Label</label>
+          <input
+            value={label}
+            onChange={e => setLabel(e.target.value)}
+            placeholder="e.g. FIR Investigation, Cybercrime..."
+            className="w-full px-3 py-2 rounded-xl text-xs bg-white/5 border border-white/10 outline-none text-white focus:border-[#C9A227]"
+            maxLength={30}
+          />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[11px] text-white/60 font-semibold uppercase tracking-wider">Tag Color</label>
+          <div className="flex items-center gap-2 pt-1">
+            {TAG_PRESET_COLORS.map(c => (
+              <button
+                key={c.hex}
+                type="button"
+                onClick={() => setColor(c.hex)}
+                className={`w-7 h-7 rounded-full transition border-2 ${color === c.hex ? "border-white scale-110 shadow-lg" : "border-transparent opacity-70 hover:opacity-100"}`}
+                style={{ background: c.hex }}
+                title={c.name}
+              />
+            ))}
+          </div>
+        </div>
+
+        {label && (
+          <div className="flex items-center gap-2 pt-1">
+            <span className="text-xs text-white/40">Preview:</span>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider text-white shadow-sm" style={{ background: color }}>
+              {label}
+            </span>
+          </div>
+        )}
+
+        <div className="flex items-center gap-2 pt-3 border-t border-white/10">
+          <button onClick={() => { onSave("", ""); onClose(); }} className="flex-1 py-2 rounded-xl text-xs font-bold bg-white/5 hover:bg-white/10 text-white/60 transition">
+            Remove Tag
+          </button>
+          <button onClick={() => { onSave(label, color); onClose(); }} className="flex-1 py-2 rounded-xl text-xs font-bold bg-[#C9A227] text-black transition">
+            Save Tag
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 // ── OCR Scan Panel ─────────────────────────────────────────────────────────────
 type OcrState = "idle" | "scanning" | "done" | "error";
 
@@ -97,7 +192,6 @@ function OcrScanPanel({
         file,
         selectedLang.startsWith("kn") ? "kn" : "en",
         (token) => {
-          // Replace literal \n with actual newlines (OCR may stream escaped)
           const decoded = token.replace(/\\n/g, "\n");
           accTextRef.current += decoded;
           setExtractedText(accTextRef.current);
@@ -122,14 +216,7 @@ function OcrScanPanel({
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 12 }}
-      className="mx-3 mt-2 shrink-0 rounded-2xl border border-amber-500/30 overflow-hidden"
-      style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(24px)" }}
-    >
-      {/* Header */}
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 12 }} className="mx-3 mt-2 shrink-0 rounded-2xl border border-amber-500/30 overflow-hidden" style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(24px)" }}>
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded-lg flex items-center justify-center bg-amber-500/10 border border-amber-500/30">
@@ -149,25 +236,13 @@ function OcrScanPanel({
       </div>
 
       <div className="p-4 flex flex-col sm:flex-row gap-4">
-        {/* Left: image drop zone / preview */}
-        <div className="relative shrink-0 w-full sm:w-44 h-36 rounded-xl overflow-hidden border border-white/10 flex items-center justify-center cursor-pointer"
-          style={{ background: "rgba(255,255,255,0.03)" }}
-          onClick={() => ocrState === "idle" && fileInputRef.current?.click()}
-        >
+        <div className="relative shrink-0 w-full sm:w-44 h-36 rounded-xl overflow-hidden border border-white/10 flex items-center justify-center cursor-pointer" style={{ background: "rgba(255,255,255,0.03)" }} onClick={() => ocrState === "idle" && fileInputRef.current?.click()}>
           {previewUrl ? (
             <>
               <img src={previewUrl} alt="OCR target" className="w-full h-full object-cover" />
-              {/* Scan animation overlay */}
               {ocrState === "scanning" && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center" style={{ background: "rgba(0,0,0,0.4)" }}>
-                  {/* Animated scan line */}
-                  <motion.div
-                    className="absolute left-0 right-0 h-0.5"
-                    style={{ background: "linear-gradient(to right, transparent, #C9A227, transparent)", boxShadow: "0 0 12px #C9A227" }}
-                    animate={{ top: ["0%", "100%", "0%"] }}
-                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                  />
-                  {/* Corner brackets */}
+                  <motion.div className="absolute left-0 right-0 h-0.5" style={{ background: "linear-gradient(to right, transparent, #C9A227, transparent)", boxShadow: "0 0 12px #C9A227" }} animate={{ top: ["0%", "100%", "0%"] }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }} />
                   <div className="absolute inset-2 pointer-events-none">
                     <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-[#C9A227] rounded-tl" />
                     <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-[#C9A227] rounded-tr" />
@@ -196,7 +271,6 @@ function OcrScanPanel({
           <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="hidden" onChange={handleFileSelect} />
         </div>
 
-        {/* Right: extracted text stream */}
         <div className="flex-1 flex flex-col gap-2 min-h-[120px]">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">
@@ -210,9 +284,7 @@ function OcrScanPanel({
             )}
           </div>
 
-          <div className="flex-1 rounded-xl border border-white/10 p-3 overflow-y-auto text-xs font-mono leading-relaxed min-h-[80px] max-h-[140px]"
-            style={{ background: "rgba(255,255,255,0.03)", color: ocrState === "error" ? "#f87171" : "rgba(255,255,255,0.8)", whiteSpace: "pre-wrap" }}
-          >
+          <div className="flex-1 rounded-xl border border-white/10 p-3 overflow-y-auto text-xs font-mono leading-relaxed min-h-[80px] max-h-[140px]" style={{ background: "rgba(255,255,255,0.03)", color: ocrState === "error" ? "#f87171" : "rgba(255,255,255,0.8)", whiteSpace: "pre-wrap" }}>
             {ocrState === "error"
               ? `Error: ${errorMsg}`
               : ocrState === "idle" && !extractedText
@@ -223,28 +295,17 @@ function OcrScanPanel({
 
           <div className="flex items-center gap-2">
             {!previewUrl && (
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="flex-1 py-2 rounded-xl text-xs font-bold transition active:scale-95"
-                style={{ background: "rgba(201,162,39,0.15)", color: "#C9A227", border: "1px solid rgba(201,162,39,0.3)" }}
-              >
+              <button onClick={() => fileInputRef.current?.click()} className="flex-1 py-2 rounded-xl text-xs font-bold transition active:scale-95" style={{ background: "rgba(201,162,39,0.15)", color: "#C9A227", border: "1px solid rgba(201,162,39,0.3)" }}>
                 Select Image
               </button>
             )}
             {ocrState === "done" && extractedText && (
-              <button
-                onClick={handleUseText}
-                className="flex-1 py-2 rounded-xl text-xs font-bold transition active:scale-95 bg-[#C9A227] text-black flex items-center justify-center gap-1.5"
-              >
+              <button onClick={handleUseText} className="flex-1 py-2 rounded-xl text-xs font-bold transition active:scale-95 bg-[#C9A227] text-black flex items-center justify-center gap-1.5">
                 <Check className="w-3.5 h-3.5" /> Use Extracted Text
               </button>
             )}
             {previewUrl && ocrState !== "scanning" && (
-              <button
-                onClick={() => { setPreviewUrl(null); setOcrState("idle"); setExtractedText(""); setErrorMsg(""); accTextRef.current = ""; if (fileInputRef.current) fileInputRef.current.value = ""; }}
-                className="px-3 py-2 rounded-xl text-xs font-bold transition text-white/40 hover:text-white/70"
-                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}
-              >
+              <button onClick={() => { setPreviewUrl(null); setOcrState("idle"); setExtractedText(""); setErrorMsg(""); accTextRef.current = ""; if (fileInputRef.current) fileInputRef.current.value = ""; }} className="px-3 py-2 rounded-xl text-xs font-bold transition text-white/40 hover:text-white/70" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>
                 Clear
               </button>
             )}
@@ -257,12 +318,11 @@ function OcrScanPanel({
 
 type SendState = "idle" | "thinking" | "done";
 type ChatMsg = { sender: "user" | "bot"; text: string; thinking?: string };
-type ChatSession = { id: number; title: string; created_at: string };
 
 export default function GptInterface() {
   const [message, setMessage] = useState("");
   const [chat, setChat] = useState<ChatMsg[]>([]);
-  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [sessions, setSessions] = useState<ChatSessionItem[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<number | null>(null);
   const [sendState, setSendState] = useState<SendState>("idle");
   const [isListening, setIsListening] = useState(false);
@@ -272,6 +332,8 @@ export default function GptInterface() {
   const [isPlayingAudio, setIsPlayingAudio] = useState<number | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showOcrPanel, setShowOcrPanel] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [tagModalSession, setTagModalSession] = useState<ChatSessionItem | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -285,12 +347,65 @@ export default function GptInterface() {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { fetchSessions(); }, []);
+  useEffect(() => { fetchSessions(searchQuery); }, [searchQuery]);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chat, sendState]);
   useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") { setIsSidebarOpen(false); setShowOcrPanel(false); } };
+    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") { setIsSidebarOpen(false); setShowOcrPanel(false); setTagModalSession(null); } };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, []);
+
+  const fetchSessions = async (q?: string) => {
+    try {
+      const data = await ml.chatSessions(q);
+      setSessions(data);
+    } catch (e) { console.error("Failed to fetch chat sessions", e); }
+  };
+
+  const loadSession = async (id: number) => {
+    try {
+      const msgs = await apiFetch<any[]>(`/api/v1/chat/sessions/${id}/messages`);
+      setChat(msgs.map(m => ({ sender: m.sender, text: m.text })));
+      setCurrentSessionId(id);
+      setIsSidebarOpen(false);
+    } catch (e) { console.error("Failed to load session", e); }
+  };
+
+  const createNewSession = () => { setCurrentSessionId(null); setChat([]); setIsSidebarOpen(false); };
+
+  const handleTogglePin = async (e: React.MouseEvent, s: ChatSessionItem) => {
+    e.stopPropagation();
+    try {
+      await ml.updateSession(s.id, { is_pinned: !s.is_pinned });
+      fetchSessions(searchQuery);
+    } catch (err) { console.error("Pin failed", err); }
+  };
+
+  const handleToggleStar = async (e: React.MouseEvent, s: ChatSessionItem) => {
+    e.stopPropagation();
+    try {
+      await ml.updateSession(s.id, { is_starred: !s.is_starred });
+      fetchSessions(searchQuery);
+    } catch (err) { console.error("Star failed", err); }
+  };
+
+  const handleSaveTag = async (label: string, color: string) => {
+    if (!tagModalSession) return;
+    try {
+      await ml.updateSession(tagModalSession.id, { tag_label: label || null, tag_color: color || null });
+      fetchSessions(searchQuery);
+    } catch (err) { console.error("Save tag failed", err); }
+  };
+
+  const handleDeleteSession = async (e: React.MouseEvent, s: ChatSessionItem) => {
+    e.stopPropagation();
+    if (!confirm(`Delete conversation "${s.title}"?`)) return;
+    try {
+      await ml.deleteSession(s.id);
+      if (currentSessionId === s.id) { setCurrentSessionId(null); setChat([]); }
+      fetchSessions(searchQuery);
+    } catch (err) { console.error("Delete failed", err); }
+  };
 
   const startVoiceRecording = async () => {
     try {
@@ -339,22 +454,6 @@ export default function GptInterface() {
     } catch (e) { console.error("TTS playback failed", e); setIsPlayingAudio(null); }
   };
 
-  const fetchSessions = async () => {
-    try { const data = await apiFetch<ChatSession[]>("/api/v1/chat/sessions"); setSessions(data); }
-    catch (e) { console.error("Failed to fetch sessions", e); }
-  };
-
-  const loadSession = async (id: number) => {
-    try {
-      const msgs = await apiFetch<any[]>(`/api/v1/chat/sessions/${id}/messages`);
-      setChat(msgs.map(m => ({ sender: m.sender, text: m.text })));
-      setCurrentSessionId(id);
-      setIsSidebarOpen(false);
-    } catch (e) { console.error("Failed to load session", e); }
-  };
-
-  const createNewSession = () => { setCurrentSessionId(null); setChat([]); setIsSidebarOpen(false); };
-
   const handleSend = async (e?: React.FormEvent, presetMessage?: string) => {
     e?.preventDefault();
     const textToSend = presetMessage || message;
@@ -377,16 +476,23 @@ export default function GptInterface() {
           accumulatedText += token;
           setChat((prev) => { const copy = [...prev]; if (copy[botMsgIdx]) copy[botMsgIdx] = { ...copy[botMsgIdx], text: accumulatedText }; return copy; });
         },
-        (_meta: any) => { setSendState("done"); },
+        (meta: any) => {
+          if (meta?.session_id) {
+            setCurrentSessionId(Number(meta.session_id));
+            fetchSessions(searchQuery);
+          }
+        },
         (err: string) => {
           setChat((prev) => { const copy = [...prev]; if (copy[botMsgIdx]) copy[botMsgIdx] = { ...copy[botMsgIdx], text: `**Error:** ${err}` }; return copy; });
         },
         (thinkingToken: string) => {
           accumulatedThinking += thinkingToken;
           setChat((prev) => { const copy = [...prev]; if (copy[botMsgIdx]) copy[botMsgIdx] = { ...copy[botMsgIdx], thinking: accumulatedThinking }; return copy; });
-        }
+        },
+        currentSessionId || undefined
       );
       setSendState("done");
+      fetchSessions(searchQuery);
       setTimeout(() => setSendState("idle"), 800);
     } catch (error: any) {
       const errMsg = typeof error === "string" ? error : (error?.message || (typeof error?.detail === "string" ? error.detail : JSON.stringify(error)));
@@ -408,20 +514,115 @@ export default function GptInterface() {
 
   const SidebarContent = () => (
     <>
-      <div className="p-3 border-b border-slate-200 dark:border-white/10 shrink-0">
+      <div className="p-3 border-b border-slate-200 dark:border-white/10 shrink-0 flex flex-col gap-2">
         <button onClick={createNewSession} className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-bold transition shadow-md active:scale-95">
           <Plus className="w-4 h-4" /> New Investigation
         </button>
+
+        {/* Search Input */}
+        <div className="relative w-full">
+          <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400 dark:text-white/40" />
+          <input
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Search past chats..."
+            className="w-full pl-8 pr-7 py-1.5 rounded-xl text-xs bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 outline-none text-slate-800 dark:text-white focus:border-blue-500 dark:focus:border-white/30"
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery("")} className="absolute right-2.5 top-2 text-slate-400 dark:text-white/40 hover:text-white">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </div>
+
       <div className="flex-1 overflow-y-auto p-2 scrollbar-hide flex flex-col gap-1">
-        <div className="px-3 py-2 text-xs font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider">Recent Chats</div>
-        {sessions.length === 0 && <p className="px-3 py-6 text-xs text-slate-400 dark:text-white/30 text-center">No recent chats</p>}
-        {sessions.map(s => (
-          <button key={s.id} onClick={() => loadSession(s.id)} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-sm transition font-medium w-full ${currentSessionId === s.id ? 'bg-blue-600/15 dark:bg-white/10 text-blue-700 dark:text-white border border-blue-500/30 dark:border-white/20' : 'text-slate-700 dark:text-gray-300 hover:bg-slate-200/70 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white'}`}>
-            <MessageSquare className="w-4 h-4 shrink-0 opacity-60 text-slate-600 dark:text-slate-400" />
-            <div className="truncate">{s.title}</div>
-          </button>
-        ))}
+        <div className="px-3 py-1.5 text-[11px] font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider flex items-center justify-between">
+          <span>{searchQuery ? "Search Results" : "Recent Chats"}</span>
+          <span className="text-[10px] text-slate-400 dark:text-white/30 font-mono">{sessions.length}</span>
+        </div>
+
+        {sessions.length === 0 && (
+          <p className="px-3 py-6 text-xs text-slate-400 dark:text-white/30 text-center">
+            {searchQuery ? "No matching chats found" : "No recent chats"}
+          </p>
+        )}
+
+        {sessions.map(s => {
+          const isSelected = currentSessionId === s.id;
+          return (
+            <div
+              key={s.id}
+              onClick={() => loadSession(s.id)}
+              className={`group relative flex flex-col gap-1 px-3 py-2.5 rounded-xl text-left text-sm transition cursor-pointer w-full ${
+                isSelected
+                  ? "bg-blue-600/15 dark:bg-white/10 text-blue-700 dark:text-white border border-blue-500/30 dark:border-white/20"
+                  : "text-slate-700 dark:text-gray-300 hover:bg-slate-200/70 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white border border-transparent"
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <MessageSquare className="w-3.5 h-3.5 shrink-0 opacity-60 text-slate-600 dark:text-slate-400" />
+                  <span className="truncate font-medium text-xs">{s.title}</span>
+                </div>
+
+                {/* Quick Indicators */}
+                <div className="flex items-center gap-1 shrink-0">
+                  {s.is_pinned && <Pin className="w-3 h-3 text-amber-500 fill-amber-500" />}
+                  {s.is_starred && <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />}
+                </div>
+              </div>
+
+              {/* Tag Pill */}
+              {s.tag_label && (
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span
+                    className="inline-block px-2 py-0.5 rounded-full text-[9px] font-bold text-white uppercase tracking-wider shadow-xs"
+                    style={{ background: s.tag_color || "#3B82F6" }}
+                  >
+                    {s.tag_label}
+                  </span>
+                </div>
+              )}
+
+              {/* Hover Actions Menu */}
+              <div className="absolute right-2 top-2 hidden group-hover:flex items-center gap-1 bg-white/90 dark:bg-black/90 backdrop-blur-md px-1.5 py-1 rounded-lg border border-slate-200 dark:border-white/10 shadow-lg z-10" onClick={e => e.stopPropagation()}>
+                <button
+                  type="button"
+                  onClick={e => handleTogglePin(e, s)}
+                  className={`p-1 rounded hover:bg-white/10 transition ${s.is_pinned ? "text-amber-400" : "text-white/40 hover:text-white"}`}
+                  title={s.is_pinned ? "Unpin chat" : "Pin chat"}
+                >
+                  <Pin className="w-3 h-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={e => handleToggleStar(e, s)}
+                  className={`p-1 rounded hover:bg-white/10 transition ${s.is_starred ? "text-yellow-400" : "text-white/40 hover:text-white"}`}
+                  title={s.is_starred ? "Unstar chat" : "Star chat"}
+                >
+                  <Star className="w-3 h-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={e => { e.stopPropagation(); setTagModalSession(s); }}
+                  className="p-1 rounded text-white/40 hover:text-white hover:bg-white/10 transition"
+                  title="Tag chat"
+                >
+                  <Tag className="w-3 h-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={e => handleDeleteSession(e, s)}
+                  className="p-1 rounded text-red-400 hover:text-red-300 hover:bg-white/10 transition"
+                  title="Delete chat"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </>
   );
@@ -580,7 +781,6 @@ export default function GptInterface() {
             <div className="flex items-center justify-between px-2 pb-2 pt-0">
               <div className="flex items-center gap-0.5">
                 <motion.button type="button" whileTap={{ scale: 0.9 }} onClick={() => setShowAttach(true)} className="p-2 rounded-xl transition-colors text-white/40 hover:text-white/85 active:bg-white/10"><Paperclip className="w-4 h-4" /></motion.button>
-                {/* Camera button now opens OCR panel */}
                 <motion.button
                   type="button"
                   whileTap={{ scale: 0.9 }}
@@ -616,6 +816,7 @@ export default function GptInterface() {
       <ConsentSheet isOpen={showCameraConsent} headline="Camera Access Request" body="Prahari AI needs camera access to process visual evidence and OCR scans." icon={<Camera className="w-7 h-7" style={{ color: "#C9A227" }} />} onConfirm={handleCameraConfirm} onDismiss={() => setShowCameraConsent(false)} />
       <ConsentSheet isOpen={showMicConsent} headline="Microphone Access Request" body="Enable voice commands to speak directly with Prahari AI during fieldwork." icon={<Mic className="w-7 h-7" style={{ color: "#C9A227" }} />} onConfirm={handleMicConfirm} onDismiss={() => setShowMicConsent(false)} />
       <AttachmentModal isOpen={showAttach} onClose={() => setShowAttach(false)} />
+      <TagModal isOpen={!!tagModalSession} session={tagModalSession} onClose={() => setTagModalSession(null)} onSave={handleSaveTag} />
     </div>
   );
 }

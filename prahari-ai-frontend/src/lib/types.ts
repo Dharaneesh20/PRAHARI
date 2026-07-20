@@ -139,3 +139,13 @@ export interface RiskZone { zone: string; score: number; trend: number; confiden
 export interface StationStats { station: string; zone: string; clearanceRate: number; avgResponse: number; caseVolume: number; rank: number; }
 export interface AgeGroup { group: string; offenderPct: number; victimPct: number; }
 export interface TimeSlot { slot: string; incidents: number; }
+
+export interface ChatSessionItem {
+  id: number;
+  title: string;
+  is_pinned?: boolean;
+  is_starred?: boolean;
+  tag_label?: string | null;
+  tag_color?: string | null;
+  created_at: string;
+}

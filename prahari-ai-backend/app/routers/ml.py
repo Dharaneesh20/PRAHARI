@@ -246,6 +246,14 @@ async def nl2sql(
     return result
 
 
+class UpdateChatSessionRequest(BaseModel):
+    title: Optional[str] = None
+    is_pinned: Optional[bool] = None
+    is_starred: Optional[bool] = None
+    tag_label: Optional[str] = None
+    tag_color: Optional[str] = None
+
+
 @router.post(
     "/search/nl2sql/stream",
     summary="Natural language to SQL analytics query with real-time token streaming",
@@ -254,32 +262,109 @@ async def nl2sql_stream(
     body: NL2SQLRequest,
     current_user: User = Depends(get_current_user),
     db=Depends(get_db),
+    auth_db=Depends(get_auth_db),
 ):
     """
-    Streams LLM token response in real-time using Server-Sent Events (SSE).
+    Streams LLM token response in real-time using Server-Sent Events (SSE),
+    creates/persists chat session, and records user & bot messages.
     """
     if not body.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
         
     clearance_level = current_user.clearance_level
-    session_id = body.session_id or "1"
+    session_id = body.session_id
 
-    return StreamingResponse(
-        ml_service.run_nl2sql_stream(
+    # Create session if not provided or invalid
+    if not session_id or not str(session_id).isdigit():
+        title_text = body.question[:40] + ("..." if len(body.question) > 40 else "")
+        new_session = ChatSession(
+            user_badge_id=current_user.badge_id,
+            title=title_text
+        )
+        auth_db.add(new_session)
+        auth_db.commit()
+        auth_db.refresh(new_session)
+        session_id = str(new_session.id)
+    else:
+        session_id = str(session_id)
+
+    # Save user message immediately
+    session_int_id = int(session_id) if session_id.isdigit() else 0
+    if session_int_id > 0:
+        auth_db.add(ChatMessage(session_id=session_int_id, sender="user", text=body.question))
+        auth_db.commit()
+
+    async def _stream_with_persistence():
+        # First send session meta to client
+        import json
+        yield f'data: {{"meta": {{"session_id": "{session_id}"}}}}\n\n'
+
+        accumulated_answer = ""
+        generator = ml_service.run_nl2sql_stream(
             db,
             body.question,
             body.role,
             body.scope_id,
             clearance_level=clearance_level,
             session_id=session_id
-        ),
+        )
+
+        async for chunk in generator:
+            yield chunk
+
+            # Extract token content to accumulate final answer
+            if chunk.startswith("data: "):
+                try:
+                    parsed = json.loads(chunk[6:].strip())
+                    if parsed.get("token") and parsed["token"] != "[DONE]":
+                        accumulated_answer += parsed["token"]
+                except Exception:
+                    pass
+
+        # Save bot message on completion
+        if session_int_id > 0 and accumulated_answer.strip():
+            try:
+                auth_db.add(ChatMessage(session_id=session_int_id, sender="bot", text=accumulated_answer))
+                auth_db.commit()
+            except Exception as e:
+                pass
+
+    return StreamingResponse(
+        _stream_with_persistence(),
         media_type="text/event-stream"
     )
 
+
 @router.get("/chat/sessions", summary="Get user chat history")
-async def get_chat_sessions(current_user: User = Depends(get_current_user), auth_db=Depends(get_auth_db)):
-    sessions = auth_db.query(ChatSession).filter(ChatSession.user_badge_id == current_user.badge_id).order_by(ChatSession.created_at.desc()).all()
-    return [{"id": s.id, "title": s.title, "created_at": s.created_at} for s in sessions]
+async def get_chat_sessions(
+    q: Optional[str] = Query(None, description="Search query filter for session title or messages"),
+    current_user: User = Depends(get_current_user),
+    auth_db=Depends(get_auth_db)
+):
+    query = auth_db.query(ChatSession).filter(ChatSession.user_badge_id == current_user.badge_id)
+    
+    if q and q.strip():
+        search_term = f"%{q.strip()}%"
+        # Search by title or matching message text
+        matching_ids = auth_db.query(ChatMessage.session_id).filter(ChatMessage.text.ilike(search_term)).subquery()
+        query = query.filter(
+            (ChatSession.title.ilike(search_term)) | (ChatSession.id.in_(matching_ids))
+        )
+        
+    sessions = query.order_by(ChatSession.is_pinned.desc(), ChatSession.is_starred.desc(), ChatSession.created_at.desc()).all()
+    return [
+        {
+            "id": s.id,
+            "title": s.title,
+            "is_pinned": bool(s.is_pinned),
+            "is_starred": bool(s.is_starred),
+            "tag_label": s.tag_label,
+            "tag_color": s.tag_color,
+            "created_at": s.created_at
+        }
+        for s in sessions
+    ]
+
 
 @router.get("/chat/sessions/{session_id}/messages", summary="Get messages in a session")
 async def get_chat_messages(session_id: int, current_user: User = Depends(get_current_user), auth_db=Depends(get_auth_db)):
@@ -288,6 +373,56 @@ async def get_chat_messages(session_id: int, current_user: User = Depends(get_cu
         raise HTTPException(status_code=404, detail="Session not found")
     messages = auth_db.query(ChatMessage).filter(ChatMessage.session_id == session_id).order_by(ChatMessage.created_at.asc()).all()
     return [{"id": m.id, "sender": m.sender, "text": m.text, "created_at": m.created_at} for m in messages]
+
+
+@router.patch("/chat/sessions/{session_id}", summary="Update session metadata (title, pin, star, tag)")
+async def update_chat_session(
+    session_id: int,
+    body: UpdateChatSessionRequest,
+    current_user: User = Depends(get_current_user),
+    auth_db=Depends(get_auth_db)
+):
+    session = auth_db.query(ChatSession).filter(ChatSession.id == session_id, ChatSession.user_badge_id == current_user.badge_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    if body.title is not None:
+        session.title = body.title
+    if body.is_pinned is not None:
+        session.is_pinned = body.is_pinned
+    if body.is_starred is not None:
+        session.is_starred = body.is_starred
+    if body.tag_label is not None:
+        session.tag_label = body.tag_label
+    if body.tag_color is not None:
+        session.tag_color = body.tag_color
+
+    auth_db.commit()
+    auth_db.refresh(session)
+    return {
+        "id": session.id,
+        "title": session.title,
+        "is_pinned": bool(session.is_pinned),
+        "is_starred": bool(session.is_starred),
+        "tag_label": session.tag_label,
+        "tag_color": session.tag_color,
+        "created_at": session.created_at
+    }
+
+
+@router.delete("/chat/sessions/{session_id}", summary="Delete a chat session")
+async def delete_chat_session(
+    session_id: int,
+    current_user: User = Depends(get_current_user),
+    auth_db=Depends(get_auth_db)
+):
+    session = auth_db.query(ChatSession).filter(ChatSession.id == session_id, ChatSession.user_badge_id == current_user.badge_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    auth_db.delete(session)
+    auth_db.commit()
+    return {"status": "success", "message": f"Session {session_id} deleted."}
 
 
 @router.post(

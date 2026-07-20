@@ -469,12 +469,34 @@ export const ml = {
     window.URL.revokeObjectURL(url);
   },
 
+  chatSessions: (q?: string) => {
+    const qs = q ? `?q=${encodeURIComponent(q)}` : "";
+    return apiFetch<import("./types").ChatSessionItem[]>(`/api/v1/chat/sessions${qs}`);
+  },
+
+  updateSession: (
+    id: number,
+    data: { title?: string; is_pinned?: boolean; is_starred?: boolean; tag_label?: string | null; tag_color?: string | null }
+  ) => {
+    return apiFetch<import("./types").ChatSessionItem>(`/api/v1/chat/sessions/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteSession: (id: number) => {
+    return apiFetch<{ status: string }>(`/api/v1/chat/sessions/${id}`, {
+      method: "DELETE",
+    });
+  },
+
   nl2sqlStream: async (
     question: string,
     onToken: (token: string) => void,
-    onMeta?: (meta: { route: string; sql: string; rows: number }) => void,
+    onMeta?: (meta: { route?: string; sql?: string; rows?: number; session_id?: string }) => void,
     onError?: (err: string) => void,
-    onThinking?: (thinkingToken: string) => void
+    onThinking?: (thinkingToken: string) => void,
+    sessionId?: string | number
   ) => {
     const token = getToken();
     const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -483,7 +505,7 @@ export const ml = {
     const res = await fetch(`${BASE_URL}/api/v1/search/nl2sql/stream`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ question, role: "SCRB_ADMIN" }),
+      body: JSON.stringify({ question, role: "SCRB_ADMIN", session_id: sessionId ? String(sessionId) : undefined }),
     });
 
     if (!res.ok) {
