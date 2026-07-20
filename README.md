@@ -1,13 +1,28 @@
-# 🚨 PRAHARI AI
+# PRAHARI AI
 > **Proactive Response & Analytics Hub for Actionable Records & Investigation**  
 > *AI-Powered Intelligence Copilot & Tactical Analytics Platform for Karnataka State Police*
 
 <div align="center">
-  <img src="prahari-ai-frontend/public/image_9a5181.png" width="130" alt="Karnataka Police Emblem" />
-  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-  <img src="prahari-ai-frontend/public/image_9a4dc1.png" width="130" alt="PRAHARI AI Logo" />
-  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-  <img src="prahari-ai-frontend/public/catalyst.svg" width="130" alt="Zoho Catalyst Logo" />
+  <table>
+    <tr>
+      <td align="center" valign="middle" border="0">
+        <img src="prahari-ai-frontend/public/image_9a5181.png" width="110" alt="Karnataka State Police Emblem" /><br />
+        <sub><b>Karnataka State Police</b></sub>
+      </td>
+      <td align="center" valign="middle" border="0">
+        <img src="prahari-ai-frontend/public/image_9a4dc1.png" width="110" alt="PRAHARI AI Logo" /><br />
+        <sub><b>PRAHARI AI</b></sub>
+      </td>
+      <td align="center" valign="middle" border="0">
+        <img src="prahari-ai-frontend/public/zoho-logo-web.svg" width="110" alt="Zoho Logo" /><br />
+        <sub><b>Zoho</b></sub>
+      </td>
+      <td align="center" valign="middle" border="0">
+        <img src="prahari-ai-frontend/public/catalyst.svg" width="110" alt="Zoho Catalyst Logo" /><br />
+        <sub><b>Zoho Catalyst Platform</b></sub>
+      </td>
+    </tr>
+  </table>
 </div>
 
 <br />
@@ -26,44 +41,46 @@
 
 ---
 
-## 🏆 Datathon Context & Project Vision
+## Datathon Context & Project Vision
 
-**PRAHARI AI** was developed as part of the **Karnataka State Police Datathon / AI Intelligence Hackathon**, built to harness cutting-edge Cloud AI & Machine Learning to modernize state law enforcement workflows.
+**PRAHARI AI** was developed as part of the **Karnataka State Police Datathon / AI Intelligence Hackathon**, built to harness Cloud AI and Machine Learning to modernize state law enforcement workflows.
 
-The system empowers police command staff, Station House Officers (SHOs), and intelligence officers across Karnataka to transform raw First Information Reports (FIRs) into actionable tactical intelligence through natural language database queries, real-time spatio-temporal analytics, offender network mapping, automated enterprise PDF generation, and Zoho Catalyst Zia™ Multimodal AI integration.
+The system empowers police command staff, Station House Officers (SHOs), and intelligence officers across Karnataka to transform raw First Information Reports (FIRs) into actionable tactical intelligence through natural language database queries, real-time spatio-temporal analytics, offender network mapping, automated enterprise PDF generation, and Zoho Catalyst Zia Multimodal AI integration.
 
 ---
 
-## 🌟 Key Features & Specialities
+## Key Features & Specialities
 
-### 1. ⚡ Natural Language to SQL (NL2SQL) Engine
-Translates natural language police queries (e.g., *"Which district had the most FIRs in 2022?"*) into optimized DuckDB queries across millions of FIR records with strict **Role-Based Access Control (RBAC)** to redact PII for lower clearance levels.
+### 1. Natural Language to SQL (NL2SQL) Engine
+Translates natural language police queries (such as *"Which district had the most FIRs in 2022?"*) into optimized DuckDB queries across millions of FIR records with strict **Role-Based Access Control (RBAC)** to redact PII for lower clearance levels.
 
-### 2. 🧠 Collapsible Reasoning Model Thinking UI
-Real-time extraction and rendering of internal LLM thought processes (`<think>` tags & `reasoning_content` deltas) inside collapsible accordions, providing officers full transparency into how AI reaches its analytical conclusions.
+### 2. Collapsible Reasoning Model Thinking UI
+Real-time extraction and rendering of internal LLM thought processes (`<think>` tags and `reasoning_content` deltas) inside collapsible accordions, providing officers full transparency into how AI reaches its analytical conclusions.
 
-### 3. ☁️ Zoho Catalyst Zia™ Multimodal Services Integration
-Integrated **Zoho Catalyst Zia™ AI** services across the platform:
-- 🎙️ **Zia™ Speech-to-Text (STT)**: Direct voice query input in **Kannada (`kn-IN`)** & **English (`en-IN`)**.
-- 🔊 **Zia™ Text-to-Speech (TTS)**: Voice playback of AI responses in native accent.
-- 🔠 **Zia™ Neural Translation**: Real-time bidirectional translation between Kannada and English.
-- 📷 **Zia™ ML OCR Engine**: Optical Character Recognition API (`POST /baas/v1/project/{PROJECT_ID}/ml/ocr`) to scan uploaded evidence images, FIR sheets, and handwritten notes with live scanning overlay UI.
+### 3. Zoho Catalyst Zia Multimodal Services Integration
+Integrated **Zoho Catalyst Zia AI** services across the platform:
+- **Zia Speech-to-Text (STT)**: Direct voice query input in **Kannada (`kn-IN`)** and **English (`en-IN`)**.
+- **Zia Text-to-Speech (TTS)**: Voice playback of AI responses in native accent.
+- **Zia Neural Translation**: Real-time bidirectional translation between Kannada and English.
+- **Zia ML OCR Engine**: Optical Character Recognition API (`POST /baas/v1/project/{PROJECT_ID}/ml/ocr`) to scan uploaded evidence images, FIR sheets, and handwritten notes with live scanning overlay UI.
 
-### 4. 🖨️ Enterprise Chrome-Based PDF Report Generator
-Replaced basic exports with a pixel-perfect HTML-to-PDF printing engine powered by **Google Chrome Headless** and Jinja2 templates:
+For complete step-by-step instructions on setting up Zoho Catalyst and enabling Zia services, refer to the [Zoho Catalyst Deployment Guide](prahari-ai-backend/docs/deployment.md).
+
+### 4. Enterprise Chrome-Based PDF Report Generator
+HTML-to-PDF printing engine powered by **Google Chrome Headless** and Jinja2 templates:
 - **Cover Page**: Karnataka State Police emblem, Prahari AI branding, session ID, model, role, and confidentiality badge.
 - **Watermarking**: Diagonal `CONFIDENTIAL` watermark at 4% opacity on every page.
 - **Turn Cards**: Structured cards with dark Mac-style code blocks for SQL, syntax highlighting, callout summary boxes, and headers/footers.
 
-### 5. 🔄 Multi-Provider Fast Failover LLM Architecture
+### 5. Multi-Provider Fast Failover LLM Architecture
 Features automatic failover across **NVIDIA API** (`nvidia/nemotron-3-super-120b`, `deepseek-ai/deepseek-v4-pro`, `meta/llama-3.3-70b-instruct`) and **Groq API** (`llama-3.3-70b-versatile`) with non-blocking read timeouts.
 
-### 6. 🕸️ NetworkX Co-Accused Graph & Spatial Crime Map
+### 6. NetworkX Co-Accused Graph & Spatial Crime Map
 Maps criminal connections, offender clusters, and degree centrality to identify repeat offender rings alongside interactive Leaflet heatmaps across Karnataka state coordinates.
 
 ---
 
-## 📅 Project Evolution
+## Project Evolution
 
 ```mermaid
 timeline
@@ -78,11 +95,11 @@ timeline
 
 ---
 
-## 🛠️ Technology Stack
+## Technology Stack
 
 | Domain | Technologies |
 | :--- | :--- |
-| **Cloud AI Services** | **Zoho Catalyst Zia™ Services** (STT, TTS, Neural Translation, ML OCR) |
+| **Cloud AI Services** | **Zoho Catalyst Zia Services** (STT, TTS, Neural Translation, ML OCR) |
 | **LLM Orchestration** | NVIDIA API (Nemotron 3, DeepSeek v4 Pro), Groq API, OpenAI Python SDK |
 | **Data Engine & ML** | Python 3.12, DuckDB, Pandas, NumPy, NetworkX, Jinja2, Chrome Headless |
 | **Backend API** | FastAPI, SQLite (`prahari_auth.db`), OAuth2, JWT (`python-jose`), Passlib |
@@ -90,11 +107,11 @@ timeline
 
 ---
 
-## 🚀 Quickstart & Setup Guide
+## Quickstart & Setup Guide
 
 ### Prerequisites
 - Python 3.12+
-- Node.js 18+ & npm
+- Node.js 18+ and npm
 - Google Chrome (for PDF export)
 
 ### 1. Environment Configuration
@@ -118,6 +135,8 @@ pip install -r requirements.txt
 python -m uvicorn app.main:app --reload --port 8000
 ```
 
+Detailed deployment instructions for Zoho Catalyst AppSail are available in [backend/docs/deployment.md](prahari-ai-backend/docs/deployment.md).
+
 ### 3. Frontend Dashboard
 ```bash
 cd prahari-ai-frontend
@@ -127,7 +146,7 @@ npm run dev
 
 ---
 
-## 👥 Project Collaborators
+## Project Collaborators
 
 <table>
   <tr>
@@ -156,7 +175,7 @@ npm run dev
         <img src="https://github.com/anumitha5831.png" width="100px;" style="border-radius: 50%;" alt="Anumitha"/><br />
         <br />
         <sub><b>Anumitha</b></sub><br />
-        <sub><code>@anumitha5831</code></sub><br />
+        <sub><code>@anumitha21</code></sub><br />
         <br />
         <small>Data Engineering & Geospatial Analytics</small>
       </a>
@@ -166,5 +185,5 @@ npm run dev
 
 ---
 
-## 📜 License
+## License
 *Copyright © 2026 PRAHARI AI Team. Confidential & Proprietary for Karnataka State Police Analytics.*
