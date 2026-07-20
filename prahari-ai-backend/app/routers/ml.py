@@ -6,7 +6,7 @@ Bridges DuckDB + ML pipeline functions to the frontend.
 from typing import List, Optional
 
 from app.models.user import User
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, File, UploadFile, Form, Response
 
 from app.dependencies import get_current_user
 from app.database import get_db
@@ -210,12 +210,8 @@ async def nl2sql(
     if not body.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
         
-    clearance_level = current_user.clearance_level
-    result = ml_service.run_nl2sql(db, body.question, clearance_level=clearance_level)
-    
-    # Check if this is a general greeting or non-sql
-    if result.get("route") == "greeting" or result.get("route") == "conversational":
-        pass # We still want to save conversational messages
+    if body.role in ["SHO", "SP"] and body.scope_id is None:
+        raise HTTPException(status_code=400, detail=f"scope_id is required when role is {body.role}.")
         
     session_id = body.session_id
     if not session_id:
@@ -226,13 +222,22 @@ async def nl2sql(
         auth_db.add(new_session)
         auth_db.commit()
         auth_db.refresh(new_session)
-        session_id = new_session.id
+        session_id = str(new_session.id)
+    else:
+        session_id = str(session_id)
 
+    clearance_level = current_user.clearance_level
+    result = ml_service.run_nl2sql(db, body.question, body.role, body.scope_id, clearance_level=clearance_level, session_id=session_id)
+    
+    # Check if this is a general greeting or non-sql
+    if result.get("route") == "greeting" or result.get("route") == "conversational":
+        pass # We still want to save conversational messages
+        
     # Save user message
-    auth_db.add(ChatMessage(session_id=session_id, sender="user", text=body.question))
+    auth_db.add(ChatMessage(session_id=int(session_id) if session_id.isdigit() else 0, sender="user", text=body.question))
     
     # Save bot message
-    auth_db.add(ChatMessage(session_id=session_id, sender="bot", text=result["answer"]))
+    auth_db.add(ChatMessage(session_id=int(session_id) if session_id.isdigit() else 0, sender="bot", text=result["answer"]))
     auth_db.commit()
     
     result["session_id"] = session_id
@@ -250,3 +255,74 @@ async def get_chat_messages(session_id: int, current_user: User = Depends(get_cu
         raise HTTPException(status_code=404, detail="Session not found")
     messages = auth_db.query(ChatMessage).filter(ChatMessage.session_id == session_id).order_by(ChatMessage.created_at.asc()).all()
     return [{"id": m.id, "sender": m.sender, "text": m.text, "created_at": m.created_at} for m in messages]
+
+
+@router.post(
+    "/chat/voice",
+    summary="Voice-to-voice query analytics endpoint",
+)
+async def chat_voice(
+    file: UploadFile = File(...),
+    role: str = Form(...),
+    scope_id: Optional[int] = Form(None),
+    output_language: str = Form("kn-IN"),
+    session_id: Optional[str] = Form(None),
+    current_user: User = Depends(get_current_user),
+    db=Depends(get_db)
+):
+    """
+    Accepts Kannada/English voice query, transcribes and translates it,
+    scopes it via RBAC, runs NL2SQL, translates and speaks the answer,
+    and returns transcript, answer, and base64-encoded voice audio response.
+    """
+    if role in ["SHO", "SP"] and scope_id is None:
+        raise HTTPException(status_code=400, detail=f"scope_id is required when role is {role}.")
+
+    try:
+        audio_bytes = await file.read()
+        result = ml_service.run_voice_nl2sql(db, audio_bytes, role, scope_id, output_language, session_id=session_id)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get(
+    "/export/{session_id}",
+    summary="Export conversation history to PDF",
+)
+async def export_conversation(
+    session_id: str,
+    current_user: User = Depends(get_current_user),
+    db=Depends(get_db)
+):
+    """
+    Retrieves all audit logs for the specified session_id,
+    renders a beautifully formatted ReportLab PDF, and returns it as a file download.
+    """
+    try:
+        # Import dynamically to keep imports isolated to pipeline directory
+        try:
+            from pdf_export import export_conversation_pdf
+        except ImportError:
+            import os
+            import sys
+            sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "pipeline"))
+            from pdf_export import export_conversation_pdf
+
+        pdf_bytes = export_conversation_pdf(db, session_id)
+        
+        # Check if PDF bytes is just a default empty placeholder or empty
+        if not pdf_bytes:
+            raise HTTPException(status_code=404, detail="Conversation history not found or empty.")
+
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename=conversation_report_{session_id}.pdf"
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate PDF: {str(e)}")

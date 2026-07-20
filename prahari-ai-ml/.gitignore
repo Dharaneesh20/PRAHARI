@@ -1,35 +1,45 @@
-# Python cache files
-__pycache__/
-*.py[cod]
-*$py.class
-
-# Virtual environments
+# Python
 venv/
 .venv/
 env/
-ENV/
+__pycache__/
+*.py[cod]
+*.egg-info/
 
-# Local configuration
+# Node
+node_modules/
+
+# Environment
 .env
+.env.*
 
-# Large raw and processed data files
-data/raw/FIR_Details_Data.csv
-data/processed/
-
-# DuckDB database files
-db/
-*.duckdb
-*.duckdb.tmp
-
-# Generated analytical outputs (parquets, CSVs, coaccused graphs, and logs)
-outputs/
-*.parquet
-*.csv
-*.graphml
-*.jsonl
-
-# IDE settings and system files
+# IDE
 .vscode/
 .idea/
+
+# OS
 .DS_Store
 Thumbs.db
+
+# Build
+dist/
+build/
+
+# Logs
+*.log
+
+# Auto-generated ML Pipeline Outputs
+outputs/hotspot_clusters_*.parquet
+outputs/fact_crime_monthly.parquet
+outputs/hotspot_model_benchmark.csv
+outputs/trend_forecast_next_month.csv
+outputs/trend_model_benchmark.csv
+outputs/hotspots_bengaluru_city.parquet
+outputs/nl2sql_audit_log.jsonl
+
+# Duplicate root outputs
+fact_crime_monthly.parquet
+hotspot_clusters_*.parquet
+hotspot_model_benchmark.csv
+trend_forecast_next_month.csv
+trend_model_benchmark.csv

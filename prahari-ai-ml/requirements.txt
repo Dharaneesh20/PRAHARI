@@ -1,12 +1,25 @@
+# ── Core data & database ─────────────────────────────
 pandas
 numpy
 pyarrow
 duckdb
+
+# ── Synthetic data generation ────────────────────────
 faker
-networkx
+
+# ── Machine learning & statistics ────────────────────
 scikit-learn
-groq
-python-dotenv
 xgboost
 statsmodels
 hdbscan
+
+# ── Network / graph analysis ─────────────────────────
+networkx
+
+# ── LLM & API integration ───────────────────────────
+groq
+python-dotenv
+requests
+
+# ── PDF report generation ───────────────────────────
+reportlab
