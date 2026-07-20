@@ -659,6 +659,11 @@ joined tables — qualify it with the correct table name/alias.
 Output ONLY the corrected SQL query. No markdown fences, no explanation.
 """
     user = f"Question: {question}\n\nPrevious SQL:\n{broken_sql}\n\nError:\n{error}\n\nCorrected SQL:"
+    resp = complete_chat(
+        messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+        max_tokens=1000,
+        temperature=0,
+    )
     raw_content = resp.choices[0].message.content.strip()
     # Remove <think>...</think> tags if present
     cleaned = re.sub(r'<think>.*?</think>', '', raw_content, flags=re.DOTALL | re.IGNORECASE).strip()
