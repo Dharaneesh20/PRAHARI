@@ -177,7 +177,7 @@ BUSINESS GLOSSARY (Karnataka Police FIR data):
   WHERE cstype = 'Chargesheet' — that will always return 0 rows. Use
   cstype = 'A' for chargesheeted cases.
 
-- IMPORTANT — fact_crime_agg table: `fact_crime_agg` already contains pre-aggregated text strings (`DistrictName`, `CrimeGroupName`, `CrimeHeadName`, `CrimeYear`, `CaseCount`, `ChargesheetedCount`, `ConvictedCount`). It does NOT have ID columns (no `CrimeHeadID`, no `CrimeSubHeadID`, no `DistrictID`). DO NOT JOIN `fact_crime_agg` to `CrimeHead` or `CrimeSubHead` — filter or group directly on `fact_crime_agg.CrimeGroupName` or `fact_crime_agg.CrimeHeadName`!
+- IMPORTANT — fact_crime_agg table: `fact_crime_agg` contains pre-aggregated counts by district and crime group with columns: `DistrictName`, `UnitName`, `CrimeGroupName`, `CrimeYear`, `Gravity`, `CaseCount`, `TotalAccused`, `TotalRepeatOffenders`, `TotalVictims`, `TotalArrests`, `TotalChargesheeted`. Note: `fact_crime_agg` has `CrimeGroupName`, but DOES NOT HAVE `CrimeHeadName`. For questions asking about specific crime sub-types (e.g. "women harassment", "house theft", "dowry death"), query `CaseMaster` joined with `CrimeSubHead` (`CrimeSubHead.CrimeHeadName`) or `CrimeHead` (`CrimeHead.CrimeGroupName`).
 
 - IMPORTANT — Date & Year columns: In CaseMaster table, the date column is `CrimeRegisteredDate` (TIMESTAMP/DATE) and year column is `CrimeYear` (INTEGER). There is NO `FIRDate` or `FIRYear` column on CaseMaster. On fact_crime_agg, use `CrimeYear` (INTEGER).
   District.DistrictID. CaseMaster.CrimeMajorHeadID -> CrimeHead.CrimeHeadID.
