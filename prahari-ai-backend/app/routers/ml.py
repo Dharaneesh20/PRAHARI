@@ -4,6 +4,7 @@ All endpoints defined in prahari-ai-ml/api_endpoints.md.
 Bridges DuckDB + ML pipeline functions to the frontend.
 """
 from typing import List, Optional
+from pydantic import BaseModel
 
 from app.models.user import User
 from fastapi import APIRouter, Depends, HTTPException, Query, File, UploadFile, Form, Response
