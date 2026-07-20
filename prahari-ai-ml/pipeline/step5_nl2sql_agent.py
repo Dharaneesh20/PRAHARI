@@ -659,13 +659,20 @@ joined tables — qualify it with the correct table name/alias.
 Output ONLY the corrected SQL query. No markdown fences, no explanation.
 """
     user = f"Question: {question}\n\nPrevious SQL:\n{broken_sql}\n\nError:\n{error}\n\nCorrected SQL:"
-    resp = complete_chat(
-        messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
-        max_tokens=1000,
-        temperature=0,
-    )
-    sql = resp.choices[0].message.content.strip()
-    return re.sub(r"^```sql\s*|\s*```$", "", sql, flags=re.IGNORECASE | re.MULTILINE).strip()
+    raw_content = resp.choices[0].message.content.strip()
+    # Remove <think>...</think> tags if present
+    cleaned = re.sub(r'<think>.*?</think>', '', raw_content, flags=re.DOTALL | re.IGNORECASE).strip()
+    # Remove markdown code block markers
+    cleaned = re.sub(r"```(?:sql)?", "", cleaned, flags=re.IGNORECASE).replace("```", "").strip()
+
+    # Extract query starting at first SELECT or WITH keyword
+    match = re.search(r'\b(SELECT|WITH)\b.*', cleaned, flags=re.DOTALL | re.IGNORECASE)
+    sql = match.group(0).strip() if match else cleaned
+
+    # Auto-correct common column hallucinations (e.g. FIRDate -> CrimeRegisteredDate)
+    sql = re.sub(r'\bFIRDate\b', 'CrimeRegisteredDate', sql, flags=re.IGNORECASE)
+    sql = re.sub(r'\bFIRYear\b', 'CrimeYear', sql, flags=re.IGNORECASE)
+    return sql
 
 
 def answer_question(con, question: str, schema_context: str, role: str, scope_id: int | None = None, clearance_level: int = 1, max_repair_attempts: int = 1, session_id: str | None = None) -> dict:
