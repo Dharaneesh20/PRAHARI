@@ -206,6 +206,23 @@ export default function Sidebar() {
           </button>
         </div>
       </div>
+
+      {/* ── Deployed on Zoho Catalyst Badge Card ───────────────────── */}
+      <div className="px-3 pb-3 relative z-10">
+        <div
+          className="p-3 rounded-2xl border border-white/10 flex items-center justify-between gap-2"
+          style={{ background: "rgba(255,255,255,0.03)" }}
+        >
+          <div className="flex items-center gap-2">
+            <img src="/catalyst.svg" alt="Catalyst" className="w-5 h-5 inline" />
+            <div>
+              <p className="text-[10px] uppercase font-bold tracking-wider text-white/50 leading-none">Deployed On</p>
+              <p className="text-xs font-bold text-amber-400 mt-0.5">Zoho Catalyst</p>
+            </div>
+          </div>
+          <img src="/zoho-logo-darkbg.svg" alt="Zoho" className="h-3.5 inline opacity-85" />
+        </div>
+      </div>
     </aside>
   );
 }

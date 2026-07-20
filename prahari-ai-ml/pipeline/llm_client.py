@@ -36,8 +36,7 @@ NVIDIA_MODELS = [
     "deepseek-ai/deepseek-v4-pro",
     "meta/llama-3.3-70b-instruct",
     "nvidia/nemotron-3-ultra-550b-a55b",
-    "nvidia/nemotron-4-340b-instruct",
-    "nvidia/llama-3.1-nemotron-70b-instruct",
+    "mistralai/mistral-large-2-instruct",
 ]
 
 GROQ_MODELS = [
@@ -69,18 +68,17 @@ def complete_chat(
     temperature: float = 0.2,
     extra_body: Optional[Dict[str, Any]] = None,
     stream: bool = False,
-    timeout: float = 6.0,
+    timeout: float = 12.0,
 ) -> Any:
     """
     Executes a chat completion across NVIDIA API models with fallback to Groq and local servers.
-    Fast model failover via max_retries=0 and short per-model connect timeout.
-    Allows longer read timeout (60s) when streaming for reasoning models.
+    Fast model failover via max_retries=0 and robust connect/read timeouts.
     """
     errors = []
     
-    # Configure httpx timeout: short connect timeout for fast fallback, higher read timeout for streaming reasoning models
-    read_timeout = 60.0 if stream else timeout
-    httpx_timeout = httpx.Timeout(connect=timeout, read=read_timeout, write=10.0, pool=timeout)
+    # Configure httpx timeout: connect timeout 10s, higher read timeout (45s non-stream, 90s stream)
+    read_timeout = 90.0 if stream else 45.0
+    httpx_timeout = httpx.Timeout(connect=10.0, read=read_timeout, write=15.0, pool=10.0)
 
     # 1. Try NVIDIA API with model fallback chain
     nvidia_key = os.getenv("NVIDIA_API_KEY") or NVIDIA_API_KEY
@@ -115,7 +113,7 @@ def complete_chat(
             errors.append(err_msg)
 
     # 2. Try Groq API as secondary fallback
-    groq_api_key = os.getenv("GROQ_API_KEY")
+    groq_api_key = os.getenv("GROQ_API_KEY") or os.getenv("GROQ_API_KEY1")
     if groq_api_key:
         try:
             from groq import Groq

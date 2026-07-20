@@ -805,7 +805,15 @@ def answer_question_stream(
         return
 
     conv_ctx = get_recent_session_context(con, session_id)
-    sql = generate_sql(question, route, schema_context, clearance_level, conversation_context=conv_ctx)
+    try:
+        sql = generate_sql(question, route, schema_context, clearance_level, conversation_context=conv_ctx)
+    except Exception as exc:
+        logger.error("LLM generation failed: %s", exc)
+        yield {"type": "meta", "route": route, "sql": "", "rows": 0}
+        yield {"type": "token", "content": "⚠️ All AI reasoning model providers are currently experiencing high network latency or temporary timeouts. Please re-submit your question in a moment."}
+        log_audit(con, question, route, sql="", row_count=0, error=str(exc), elapsed_s=time.time() - t0, repaired=False, model_used=MODEL, final_answer="LLM Timeout", role=role, scope_id=scope_id, session_id=session_id)
+        return
+
     from rbac import apply_scope_filter
     sql = apply_scope_filter(con, sql, role, scope_id)
 
