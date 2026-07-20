@@ -55,18 +55,13 @@ async def transcribe_audio(
                         "provider":          "Zoho Catalyst Zia Speech",
                     }
         except Exception as e:
-            logger.warning("Zia STT failed: %s — using emulated fallback", e)
+            logger.warning("Zia STT failed: %s", e)
 
     return {
-        "status":            "success",
-        "text":              (
-            "Whitefield ನಲ್ಲಿ ಇತ್ತೀಚಿನ ಕಳ್ಳತನ ಪ್ರಕರಣಗಳ ವರದಿ"
-            if language == "kn-IN"
-            else "Show recent theft cases in Whitefield police station"
-        ),
-        "detected_language": language,
-        "confidence":        0.92,
-        "provider":          "Zoho Catalyst Zia Speech (Emulated)",
+        "status":   "error",
+        "text":     "",
+        "message":  "Speech-to-Text unavailable at the moment. Kindly use text input.",
+        "provider": "Zoho Catalyst Zia Speech",
     }
 
 

@@ -304,9 +304,16 @@ export default function GptInterface() {
         try {
           setIsListening(true);
           const sttRes = await ml.zia.speechToText(audioBlob, selectedLang);
-          if (sttRes && sttRes.text) { setMessage(sttRes.text); handleSend(undefined, sttRes.text); }
-        } catch (e) { console.error("Zia STT processing error", e); }
-        finally { setIsListening(false); setIsRecording(false); stream.getTracks().forEach(t => t.stop()); }
+          if (sttRes && sttRes.status === "success" && sttRes.text) {
+            setMessage(sttRes.text);
+            handleSend(undefined, sttRes.text);
+          } else {
+            alert("Speech-to-Text unavailable at the moment. Kindly use text input.");
+          }
+        } catch (e) {
+          console.error("Zia STT processing error", e);
+          alert("Speech-to-Text unavailable at the moment. Kindly use text input.");
+        } finally { setIsListening(false); setIsRecording(false); stream.getTracks().forEach(t => t.stop()); }
       };
       mediaRecorder.start();
       setIsRecording(true);
