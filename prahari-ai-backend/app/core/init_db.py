@@ -148,11 +148,26 @@ def _ensure_chat_session_columns() -> None:
             if column not in existing:
                 conn.execute(text(statement))
 
+def _ensure_chat_message_columns() -> None:
+    inspector = inspect(engine)
+    if not inspector.has_table("chat_messages"):
+        return
+
+    existing = {column["name"] for column in inspector.get_columns("chat_messages")}
+    additions = {
+        "thinking": "ALTER TABLE chat_messages ADD COLUMN thinking TEXT",
+    }
+    with engine.begin() as conn:
+        for column, statement in additions.items():
+            if column not in existing:
+                conn.execute(text(statement))
+
 def init_auth_db(db: Session) -> None:
     # Create all tables in the engine. This is equivalent to "Create Table If Not Exists"
     Base.metadata.create_all(bind=engine)
     _ensure_user_profile_columns()
     _ensure_chat_session_columns()
+    _ensure_chat_message_columns()
     
     # Ensure all demo users exist and have updated passwords
     logger.info("Ensuring demo users exist in Auth Database...")

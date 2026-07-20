@@ -28,6 +28,7 @@ class ChatMessage(Base):
     session_id = Column(Integer, ForeignKey("chat_sessions.id"), nullable=False)
     sender = Column(String, nullable=False) # 'user' or 'bot'
     text = Column(Text, nullable=False)
+    thinking = Column(Text, nullable=True) # AI thought process / reasoning content
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     session = relationship("ChatSession", back_populates="messages")

@@ -390,7 +390,7 @@ export default function GptInterface() {
   const loadSession = async (id: number) => {
     try {
       const msgs = await apiFetch<any[]>(`/api/v1/chat/sessions/${id}/messages`);
-      setChat(msgs.map(m => ({ sender: m.sender, text: m.text })));
+      setChat(msgs.map(m => ({ sender: m.sender, text: m.text, thinking: m.thinking || undefined })));
       setCurrentSessionId(id);
       setIsSidebarOpen(false);
     } catch (e) { console.error("Failed to load session", e); }

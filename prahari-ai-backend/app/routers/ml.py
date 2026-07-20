@@ -301,6 +301,7 @@ async def nl2sql_stream(
         yield f'data: {{"meta": {{"session_id": "{session_id}"}}}}\n\n'
 
         accumulated_answer = ""
+        accumulated_thinking = ""
         generator = ml_service.run_nl2sql_stream(
             db,
             body.question,
@@ -313,19 +314,26 @@ async def nl2sql_stream(
         for chunk in generator:
             yield chunk
 
-            # Extract token content to accumulate final answer
+            # Extract token and thinking content to accumulate final answer
             if chunk.startswith("data: "):
                 try:
                     parsed = json.loads(chunk[6:].strip())
+                    if parsed.get("thinking"):
+                        accumulated_thinking += parsed["thinking"]
                     if parsed.get("token") and parsed["token"] != "[DONE]":
                         accumulated_answer += parsed["token"]
                 except Exception:
                     pass
 
-        # Save bot message on completion
-        if session_int_id > 0 and accumulated_answer.strip():
+        # Save bot message with thinking content on completion
+        if session_int_id > 0 and (accumulated_answer.strip() or accumulated_thinking.strip()):
             try:
-                auth_db.add(ChatMessage(session_id=session_int_id, sender="bot", text=accumulated_answer))
+                auth_db.add(ChatMessage(
+                    session_id=session_int_id,
+                    sender="bot",
+                    text=accumulated_answer,
+                    thinking=accumulated_thinking if accumulated_thinking.strip() else None
+                ))
                 auth_db.commit()
             except Exception as e:
                 pass
@@ -373,7 +381,8 @@ async def get_chat_messages(session_id: int, current_user: User = Depends(get_cu
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     messages = auth_db.query(ChatMessage).filter(ChatMessage.session_id == session_id).order_by(ChatMessage.created_at.asc()).all()
-    return [{"id": m.id, "sender": m.sender, "text": m.text, "created_at": m.created_at} for m in messages]
+    return [{"id": m.id, "sender": m.sender, "text": m.text, "thinking": getattr(m, "thinking", None), "created_at": m.created_at} for m in messages]
+
 
 
 @router.patch("/chat/sessions/{session_id}", summary="Update session metadata (title, pin, star, tag)")
