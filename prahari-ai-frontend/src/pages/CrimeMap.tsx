@@ -3,288 +3,312 @@ import { useSearchParams } from "react-router-dom";
 import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { motion, AnimatePresence } from "framer-motion";
-import { SlidersHorizontal, X, Layers, Map, Zap, Shield } from "lucide-react";
-import { glassPanelStyle } from "../components/GlassCard";
-import { SeverityBadge, IncidentStatusBadge } from "../components/StatusBadge";
-import type { CrimeType, Severity, Incident, PatrolUnit, HotspotZone } from "../lib/types";
-import { incidents as incidentsApi, units as unitsApi, kpi as kpiApi } from "../lib/api";
-import { mockHotspots, mockIncidents, mockUnits } from "../data/mockData";
+import { SlidersHorizontal, X, Layers, Map, Zap, Shield, Sun, Moon, MapPin } from "lucide-react";
+import { SeverityBadge } from "../components/StatusBadge";
+import { ml } from "../lib/api";
 
-const SEVERITY_COLORS: Record<Severity, string> = {
-  critical: "#D14343", high: "#F97316", medium: "#C9A227", low: "#2E9E6C",
+const SEVERITY_COLORS = {
+  critical: "#D14343",
+  high: "#F97316",
+  medium: "#C9A227",
+  low: "#2E9E6C",
 };
 
-function MapZoomToZone({ zone, incidents }: { zone: string | null; incidents: Incident[] }) {
-  const map = useMap();
-  useEffect(() => {
-    if (!zone) return;
-    const incident = incidents.find(i => i.location.zone.toLowerCase() === zone.toLowerCase());
-    if (incident) {
-      map.setView([incident.location.lat, incident.location.lng], 14, { animate: true });
-    }
-  }, [zone, map, incidents]);
-  return null;
+interface MapPoint {
+  id: string;
+  district: string;
+  station: string;
+  crime_group: string;
+  case_count: number;
+  severity: "critical" | "high" | "medium" | "low";
+  lat: number;
+  lng: number;
 }
 
-function timeAgo(ts: string) {
-  const diff = (Date.now() - new Date(ts).getTime()) / 60000;
-  if (diff < 60) return `${Math.round(diff)}m ago`;
-  if (diff < 1440) return `${Math.round(diff / 60)}h ago`;
-  return `${Math.round(diff / 1440)}d ago`;
+const KARNATAKA_DISTRICTS = [
+  "All Karnataka",
+  "Bengaluru City",
+  "Hubballi Dharwad City",
+  "Mysuru City",
+  "Belagavi Dist",
+  "Belagavi City",
+  "Tumakuru",
+  "Mangaluru City",
+  "Dakshina Kannada",
+  "Udupi",
+  "Shivamogga",
+  "Bidar",
+  "Vijayapur",
+  "Davanagere",
+  "Ballari",
+  "Kalaburagi City",
+  "Kalaburagi",
+  "Uttara Kannada",
+  "Chikkamagaluru",
+  "Bagalkot",
+  "Raichur",
+  "Hassan",
+  "Kodagu",
+  "Koppal",
+  "Haveri",
+  "Mysuru Dist",
+  "Gadag",
+  "Chickballapura",
+  "Chamarajanagar",
+  "Ramanagara",
+  "Mandya",
+  "Dharwad",
+  "Yadgir",
+  "Chitradurga",
+  "K.G.F",
+  "Vijayanagara",
+  "Kolar",
+];
+
+const CRIME_GROUPS = [
+  "All Crime Groups",
+  "THEFT",
+  "BURGLARY - DAY",
+  "BURGLARY - NIGHT",
+  "CYBER CRIME",
+  "ROBBERY",
+  "HEINOUS CRIME",
+  "CRIMINAL TRESPASS",
+  "RIOTS",
+  "NARCOTICS CONTROL",
+  "ACCIDENT",
+];
+
+function MapController({ center, zoom }: { center: [number, number]; zoom: number }) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView(center, zoom, { animate: true });
+  }, [center, zoom, map]);
+  return null;
 }
 
 export default function CrimeMap() {
   const [searchParams] = useSearchParams();
-  const zoneParam = searchParams.get("zone");
+  const districtParam = searchParams.get("district");
+  const [selectedDistrict, setSelectedDistrict] = useState<string>(districtParam || "All Karnataka");
+  const [selectedCrimeGroup, setSelectedCrimeGroup] = useState<string>("All Crime Groups");
   const [showFilters, setShowFilters] = useState(false);
-  const [selectedTypes, setSelectedTypes] = useState<CrimeType[]>([]);
-  const [layers, setLayers] = useState({ markers: true, patrol: false, heatmap: false });
-  const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
+  const [mapTheme, setMapTheme] = useState<"dark" | "light">("dark");
+  const [selectedPoint, setSelectedPoint] = useState<MapPoint | null>(null);
 
-  const [incidentsList, setIncidentsList] = useState<Incident[]>([]);
-  const [unitsList, setUnitsList] = useState<PatrolUnit[]>([]);
-  const [hotspotsList, setHotspotsList] = useState<HotspotZone[]>([]);
+  const [incidentsList, setIncidentsList] = useState<MapPoint[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [mapCenter, setMapCenter] = useState<[number, number]>([14.5, 75.8]); // Karnataka Center
+  const [mapZoom, setMapZoom] = useState(7);
 
   useEffect(() => {
-    Promise.all([incidentsApi.list(), unitsApi.list(), kpiApi.hotspots()])
-      .then(([inc, u, hs]) => { setIncidentsList(inc); setUnitsList(u); setHotspotsList(hs); })
-      .catch(err => {
-        console.error(err);
-        setIncidentsList(mockIncidents);
-        setUnitsList(mockUnits);
-        setHotspotsList(mockHotspots);
-      })
-      .finally(() => setLoading(false));
-  }, []);
+    fetchMapData();
+  }, [selectedDistrict, selectedCrimeGroup]);
 
-  const toggleType = (t: CrimeType) =>
-    setSelectedTypes(p => p.includes(t) ? p.filter(x => x !== t) : [...p, t]);
+  const fetchMapData = async () => {
+    setLoading(true);
+    try {
+      const dist = selectedDistrict === "All Karnataka" ? undefined : selectedDistrict;
+      const group = selectedCrimeGroup === "All Crime Groups" ? undefined : selectedCrimeGroup;
+      const res = await ml.mapIncidents(dist, group);
+      setIncidentsList(res.incidents);
+      setTotalCount(res.total);
 
-  const filtered = incidentsList.filter(i =>
-    selectedTypes.length === 0 || selectedTypes.includes(i.type)
-  );
-  const crimeTypes = Array.from(new Set(incidentsList.map(incident => incident.type))).sort();
+      // If specific district selected, center to first point
+      if (dist && res.incidents.length > 0) {
+        setMapCenter([res.incidents[0].lat, res.incidents[0].lng]);
+        setMapZoom(11);
+      } else {
+        setMapCenter([14.5, 75.8]);
+        setMapZoom(7);
+      }
+    } catch (err) {
+      console.error("Failed to load map data from backend", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  if (loading) return <div className="flex items-center justify-center h-full" style={{ color: "rgba(255,255,255,0.4)" }}><p>Loading map data...</p></div>;
+  const tileUrl = mapTheme === "dark"
+    ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+    : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
 
   return (
-    <div className="relative w-full h-full">
-      {/* ── Map ──────────────────────────────────────────────── */}
+    <div className="relative w-full h-full min-h-[500px]">
+      {/* ── Leaflet Map ──────────────────────────────────────── */}
       <MapContainer
-        center={[12.97, 77.60]}
-        zoom={12}
+        center={mapCenter}
+        zoom={mapZoom}
         style={{ width: "100%", height: "100%" }}
         zoomControl={false}
       >
         <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          url={tileUrl}
           attribution='&copy; <a href="https://carto.com">CARTO</a>'
         />
-        <MapZoomToZone zone={zoneParam} incidents={incidentsList} />
+        <MapController center={mapCenter} zoom={mapZoom} />
 
-        {/* Incident markers */}
-        {layers.markers && filtered.map(inc => (
+        {/* Real Geospatial Incident Circle Markers across Karnataka */}
+        {incidentsList.map((inc) => (
           <CircleMarker
             key={inc.id}
-            center={[inc.location.lat, inc.location.lng]}
-            radius={inc.severity === "critical" ? 13 : inc.severity === "high" ? 10 : 7}
+            center={[inc.lat, inc.lng]}
+            radius={inc.severity === "critical" ? 12 : inc.severity === "high" ? 9 : 6}
             pathOptions={{
               color: SEVERITY_COLORS[inc.severity],
               fillColor: SEVERITY_COLORS[inc.severity],
-              fillOpacity: 0.65,
-              weight: 2,
+              fillOpacity: 0.75,
+              weight: 1.5,
             }}
-            eventHandlers={{ click: () => setSelectedIncident(inc) }}
+            eventHandlers={{ click: () => setSelectedPoint(inc) }}
           >
             <Popup className="prahari-popup">
-              <div className="text-xs text-gray-900 font-medium p-1">
-                <strong>{inc.type}</strong><br />
-                {inc.location.zone}<br />
-                {timeAgo(inc.timestamp)}
-              </div>
-            </Popup>
-          </CircleMarker>
-        ))}
-
-        {/* Patrol unit markers */}
-        {layers.patrol && unitsList.filter(u => u.status !== "off-duty").map(u => (
-          <CircleMarker
-            key={u.id}
-            center={[u.position.lat, u.position.lng]}
-            radius={7}
-            pathOptions={{ color: "#2E9E6C", fillColor: "#2E9E6C", fillOpacity: 0.8, weight: 2 }}
-          >
-            <Popup><div className="text-xs p-1"><strong>{u.callsign}</strong><br />{u.zone}</div></Popup>
-          </CircleMarker>
-        ))}
-
-        {/* Hotspot zones */}
-        {layers.heatmap && hotspotsList.map((spot, i) => (
-          <CircleMarker
-            key={`hotspot-${i}`}
-            center={[spot.coords.lat, spot.coords.lng]}
-            radius={spot.severity === "critical" ? 20 : spot.severity === "high" ? 15 : 10}
-            pathOptions={{
-              color: SEVERITY_COLORS[spot.severity],
-              fillColor: SEVERITY_COLORS[spot.severity],
-              fillOpacity: 0.4,
-              weight: 0
-            }}
-          >
-            <Popup className="prahari-popup">
-              <div className="text-center p-1">
-                <h4 className="font-bold text-sm" style={{ color: "#000" }}>{spot.zone}</h4>
-                <p className="text-xs mt-1" style={{ color: "#333" }}>Risk: <strong className="uppercase">{spot.severity}</strong></p>
-                <p className="text-xs" style={{ color: "#333" }}>Incidents: <strong>{spot.incidents}</strong></p>
+              <div className="p-2 text-xs font-sans text-slate-900">
+                <div className="flex items-center gap-1.5 font-bold text-sm text-blue-900 mb-1">
+                  <MapPin className="w-3.5 h-3.5 text-blue-600" />
+                  {inc.station}
+                </div>
+                <div className="text-slate-600 font-semibold mb-1">{inc.district}</div>
+                <div className="flex items-center justify-between gap-2 mt-2 pt-1 border-t border-slate-200">
+                  <span className="text-slate-500 font-mono text-[11px]">{inc.crime_group}</span>
+                  <span className="font-bold text-blue-700 font-mono text-xs">{inc.case_count} Cases</span>
+                </div>
               </div>
             </Popup>
           </CircleMarker>
         ))}
       </MapContainer>
 
-      {/* ── Layer Toggle ─────────────────────────────────────── */}
-      <div className="absolute top-4 left-4 z-[400] flex flex-col gap-2">
-        {[
-          { key: "markers" as const, icon: <Zap className="w-4 h-4" />, label: "Incidents" },
-          { key: "patrol" as const, icon: <Shield className="w-4 h-4" />, label: "Patrol" },
-          { key: "heatmap" as const, icon: <Map className="w-4 h-4" />, label: "Hotspots" },
-        ].map(({ key, icon, label }) => (
-          <button
-            key={key}
-            onClick={() => setLayers(p => ({ ...p, [key]: !p[key] }))}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition-all"
-            style={{
-              ...glassPanelStyle,
-              color: layers[key] ? "#C9A227" : "rgba(255,255,255,0.5)",
-              background: layers[key] ? "rgba(201,162,39,0.12)" : "rgba(15,20,40,0.85)",
-              border: layers[key] ? "1px solid rgba(201,162,39,0.4)" : "1px solid rgba(255,255,255,0.1)",
-            }}
-          >
-            {icon} {label}
-          </button>
-        ))}
+      {/* ── Top Bar Controls: Stats & Theme Toggle ──────────── */}
+      <div className="absolute top-4 left-4 z-[400] flex items-center gap-3 flex-wrap">
+        <div className="px-4 py-2 rounded-xl bg-slate-900/90 dark:bg-black/80 backdrop-blur-xl border border-white/10 text-white text-xs font-mono shadow-xl flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span>Karnataka State FIR Hotspots:</span>
+          <span className="font-bold text-amber-400 text-sm">{totalCount} Station Clusters</span>
+        </div>
+
+        {/* Light / Dark Mode Map Layer Switcher */}
+        <button
+          type="button"
+          onClick={() => setMapTheme(mapTheme === "dark" ? "light" : "dark")}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900/90 dark:bg-black/80 backdrop-blur-xl border border-white/10 text-xs font-semibold text-white shadow-xl hover:bg-slate-800 transition"
+        >
+          {mapTheme === "dark" ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-blue-400" />}
+          <span>{mapTheme === "dark" ? "Light Map" : "Dark Map"}</span>
+        </button>
       </div>
 
       {/* ── Filter Toggle Button ─────────────────────────────── */}
       <button
-        onClick={() => setShowFilters(p => !p)}
-        className="absolute top-4 right-4 z-[400] flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold"
-        style={{
-          ...glassPanelStyle,
-          background: "rgba(15,20,40,0.88)",
-          color: "rgba(255,255,255,0.8)",
-        }}
+        type="button"
+        onClick={() => setShowFilters(!showFilters)}
+        className="absolute top-4 right-4 z-[400] flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900/90 dark:bg-black/80 backdrop-blur-xl border border-white/10 text-white text-xs font-bold shadow-xl hover:bg-slate-800 transition"
       >
         <SlidersHorizontal className="w-4 h-4" />
-        Filters
-        {selectedTypes.length > 0 && (
-          <span className="w-5 h-5 rounded-full text-xs flex items-center justify-center font-bold"
-            style={{ background: "#C9A227", color: "#000" }}>
-            {selectedTypes.length}
-          </span>
+        Filter State
+        {(selectedDistrict !== "All Karnataka" || selectedCrimeGroup !== "All Crime Groups") && (
+          <span className="w-2 h-2 rounded-full bg-amber-400" />
         )}
       </button>
 
-      {/* ── Filter Panel ─────────────────────────────────────── */}
+      {/* ── Filter Panel Drawer ─────────────────────────────── */}
       <AnimatePresence>
         {showFilters && (
           <motion.div
-            initial={{ opacity: 0, x: 16 }}
+            initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 16 }}
-            transition={{ type: "spring", stiffness: 280, damping: 26 }}
-            className="absolute top-16 right-4 z-[400] w-64 rounded-2xl p-4 flex flex-col gap-4"
-            style={{ ...glassPanelStyle, background: "rgba(10,15,35,0.94)" }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            className="absolute top-16 right-4 z-[400] w-72 rounded-2xl p-4 bg-slate-900/95 dark:bg-black/90 backdrop-blur-2xl border border-white/10 text-white shadow-2xl flex flex-col gap-4"
           >
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-sm" style={{ color: "rgba(255,255,255,0.9)" }}>Filter Incidents</h3>
-              <button onClick={() => setShowFilters(false)} className="p-1 rounded-lg hover:bg-white/10" style={{ color: "rgba(255,255,255,0.5)" }}>
+            <div className="flex items-center justify-between border-b border-white/10 pb-2">
+              <h3 className="font-bold text-sm text-amber-400 flex items-center gap-1.5">
+                <MapPin className="w-4 h-4" /> Filter Karnataka Map
+              </h3>
+              <button onClick={() => setShowFilters(false)} className="text-white/60 hover:text-white">
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: "rgba(255,255,255,0.35)" }}>Crime Type</p>
-              <div className="flex flex-wrap gap-1.5">
-                {crimeTypes.map(t => (
-                  <button
-                    key={t}
-                    onClick={() => toggleType(t)}
-                    className="px-2 py-1 rounded-lg text-xs font-semibold transition-all"
-                    style={selectedTypes.includes(t)
-                      ? { background: "rgba(201,162,39,0.2)", border: "1px solid rgba(201,162,39,0.5)", color: "#C9A227" }
-                      : { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.5)" }}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {selectedTypes.length > 0 && (
-              <button onClick={() => setSelectedTypes([])} className="text-xs text-center font-semibold" style={{ color: "#D14343" }}>
-                Clear filters
-              </button>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
 
-      {/* ── Incident Detail Panel ─────────────────────────────── */}
-      <AnimatePresence>
-        {selectedIncident && (
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 16 }}
-            transition={{ type: "spring", stiffness: 280, damping: 26 }}
-            className="absolute bottom-4 left-4 right-4 md:right-auto md:w-96 z-[400] rounded-2xl p-5"
-            style={{ ...glassPanelStyle, background: "rgba(10,15,35,0.94)" }}
-          >
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <SeverityBadge severity={selectedIncident.severity} />
-                  <IncidentStatusBadge status={selectedIncident.status} />
-                </div>
-                <h3 className="font-bold text-base" style={{ color: "rgba(255,255,255,0.92)" }}>{selectedIncident.type}</h3>
-                <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>
-                  {selectedIncident.location.zone} · {timeAgo(selectedIncident.timestamp)}
-                </p>
-              </div>
-              <button onClick={() => setSelectedIncident(null)} className="p-1.5 rounded-lg hover:bg-white/10" style={{ color: "rgba(255,255,255,0.5)" }}>
-                <X className="w-4 h-4" />
-              </button>
+            {/* District Filter */}
+            <div>
+              <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-1">
+                District / Commissionerate
+              </label>
+              <select
+                value={selectedDistrict}
+                onChange={(e) => setSelectedDistrict(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-white text-xs outline-none focus:border-amber-400"
+              >
+                {KARNATAKA_DISTRICTS.map((d) => (
+                  <option key={d} value={d} className="bg-slate-900 text-white">
+                    {d}
+                  </option>
+                ))}
+              </select>
             </div>
-            <p className="text-sm leading-relaxed mb-4" style={{ color: "rgba(255,255,255,0.65)" }}>
-              {selectedIncident.description}
-            </p>
-            <div className="flex items-center gap-2 text-xs mb-4" style={{ color: "rgba(255,255,255,0.35)" }}>
-              <span>ID: {selectedIncident.id}</span>
-              <span>·</span>
-              <span>Source: {selectedIncident.source}</span>
+
+            {/* Crime Group Filter */}
+            <div>
+              <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-1">
+                Crime Group
+              </label>
+              <select
+                value={selectedCrimeGroup}
+                onChange={(e) => setSelectedCrimeGroup(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-white text-xs outline-none focus:border-amber-400"
+              >
+                {CRIME_GROUPS.map((g) => (
+                  <option key={g} value={g} className="bg-slate-900 text-white">
+                    {g}
+                  </option>
+                ))}
+              </select>
             </div>
+
             <button
-              className="w-full py-2.5 rounded-xl font-bold text-sm text-black"
-              style={{ background: "linear-gradient(135deg, #C9A227 0%, #e8b92e 100%)" }}
+              type="button"
+              onClick={() => {
+                setSelectedDistrict("All Karnataka");
+                setSelectedCrimeGroup("All Crime Groups");
+              }}
+              className="w-full py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-white/70 transition"
             >
-              View Full Case
+              Reset Filters
             </button>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ── Legend ───────────────────────────────────────────── */}
-      <div
-        className="absolute bottom-4 right-4 z-[400] rounded-xl p-3 flex flex-col gap-2"
-        style={{ ...glassPanelStyle, background: "rgba(10,15,35,0.88)" }}
-      >
-        {Object.entries(SEVERITY_COLORS).map(([s, c]) => (
-          <div key={s} className="flex items-center gap-2 text-xs" style={{ color: "rgba(255,255,255,0.6)" }}>
-            <span className="w-3 h-3 rounded-full shrink-0" style={{ background: c }} />
-            <span className="capitalize">{s}</span>
-          </div>
-        ))}
-      </div>
+      {/* ── Selected Incident Details Drawer ─────────────────── */}
+      <AnimatePresence>
+        {selectedPoint && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="absolute bottom-4 left-4 right-4 max-w-lg mx-auto z-[400] p-4 rounded-2xl bg-slate-900/95 dark:bg-black/90 backdrop-blur-2xl border border-amber-500/30 text-white shadow-2xl flex items-center justify-between"
+          >
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-sm text-white">{selectedPoint.station}</span>
+                <SeverityBadge severity={selectedPoint.severity} />
+              </div>
+              <p className="text-xs text-slate-300 font-medium mt-0.5">
+                {selectedPoint.district} · <span className="text-amber-400 font-mono">{selectedPoint.crime_group}</span>
+              </p>
+            </div>
+            <div className="text-right">
+              <span className="text-lg font-bold text-emerald-400 font-mono">{selectedPoint.case_count}</span>
+              <span className="text-[10px] block text-slate-400 uppercase tracking-wider font-semibold">Total Cases</span>
+            </div>
+            <button onClick={() => setSelectedPoint(null)} className="ml-3 text-white/60 hover:text-white">
+              <X className="w-4 h-4" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -355,6 +355,25 @@ export const ml = {
     },
   },
 
+  mapIncidents: (district?: string, crime_group?: string) => {
+    const params = new URLSearchParams();
+    if (district) params.append("district", district);
+    if (crime_group) params.append("crime_group", crime_group);
+    return apiFetch<{
+      total: number;
+      incidents: Array<{
+        id: string;
+        district: string;
+        station: string;
+        crime_group: string;
+        case_count: number;
+        severity: "critical" | "high" | "medium" | "low";
+        lat: number;
+        lng: number;
+      }>;
+    }>(`/api/v1/map/incidents?${params.toString()}`);
+  },
+
   exportPdf: async (sessionId: string | number) => {
     const token = getToken();
     const headers: Record<string, string> = {};

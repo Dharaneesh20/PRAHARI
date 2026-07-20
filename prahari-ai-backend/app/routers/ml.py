@@ -361,3 +361,74 @@ async def export_conversation(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate PDF: {str(e)}")
+
+
+@router.get(
+    "/map/incidents",
+    summary="Get real geospatial incident points across Karnataka State",
+)
+async def get_map_incidents(
+    district: Optional[str] = Query(default=None),
+    crime_group: Optional[str] = Query(default=None),
+    limit: int = Query(default=2500, le=5000),
+    db=Depends(get_db)
+):
+    """
+    Returns actual coordinate points for stations and incident clusters across all of Karnataka State.
+    """
+    try:
+        where_clauses = ["AvgLatitude IS NOT NULL", "AvgLongitude IS NOT NULL", "AvgLatitude BETWEEN 11.5 AND 18.6", "AvgLongitude BETWEEN 74.0 AND 78.6"]
+        params = []
+        if district:
+            where_clauses.append("DistrictName = ?")
+            params.append(district)
+        if crime_group:
+            where_clauses.append("CrimeGroupName = ?")
+            params.append(crime_group)
+        
+        where_sql = " WHERE " + " AND ".join(where_clauses)
+        sql = f"""
+            SELECT 
+                DistrictName as district,
+                UnitName as station,
+                CrimeGroupName as crime_group,
+                Gravity as gravity,
+                SUM(RealCoordCaseCount) as case_count,
+                AVG(AvgLatitude) as lat,
+                AVG(AvgLongitude) as lng
+            FROM fact_crime_geo
+            {where_sql}
+            GROUP BY DistrictName, UnitName, CrimeGroupName, Gravity
+            ORDER BY case_count DESC
+            LIMIT ?
+        """
+        params.append(limit)
+        df = db.execute(sql, params).fetchdf()
+        
+        results = []
+        for idx, row in df.iterrows():
+            severity = "medium"
+            cnt = int(row["case_count"])
+            grav = str(row["gravity"]).upper() if row["gravity"] else ""
+            if "HEINOUS" in grav or cnt >= 50:
+                severity = "critical"
+            elif cnt >= 20:
+                severity = "high"
+            elif cnt >= 5:
+                severity = "medium"
+            else:
+                severity = "low"
+
+            results.append({
+                "id": f"map-{idx}",
+                "district": row["district"],
+                "station": row["station"],
+                "crime_group": row["crime_group"],
+                "case_count": cnt,
+                "severity": severity,
+                "lat": float(row["lat"]),
+                "lng": float(row["lng"]),
+            })
+        return {"total": len(results), "incidents": results}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch map incidents: {str(e)}")
