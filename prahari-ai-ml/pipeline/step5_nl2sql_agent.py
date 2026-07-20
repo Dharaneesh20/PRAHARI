@@ -419,7 +419,7 @@ Rules:{rbac_rule}
 # 3. Validator — read-only, whitelist-only, before anything touches the DB
 # ======================================================================
 FUNCTION_FROM_PATTERN = re.compile(
-    r"\b(EXTRACT|TRIM|SUBSTRING|OVERLAY|POSITION)\s*\([\s\S]*?\bFROM\b[\s\S]*?\)",
+    r"\b(EXTRACT|TRIM|SUBSTRING|OVERLAY|POSITION)\s*\([^\)]*\bFROM\b[^\)]*\)",
     re.IGNORECASE,
 )
 
