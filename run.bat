@@ -9,7 +9,7 @@ echo.
 
 :: ── LLM PROVIDER SELECTION ─────────────────────────────────────────────────
 echo Select your LLM Provider:
-echo [1] Groq (Cloud API - requires key)
+echo [1] Nvidia (Cloud API - requires key)
 echo [2] LMStudio (Local Server on port 1234)
 echo [3] Ollama (Local Server on port 11434)
 echo.
@@ -18,7 +18,7 @@ if "%llm_choice%"=="" set llm_choice=1
 
 if "%llm_choice%"=="1" (
     set LLM_PROVIDER=groq
-    set /p GROQ_API_KEY="Enter Groq API Key (or press enter if already set): "
+    set /p GROQ_API_KEY="Enter Nvidia API Key (or press enter if already set): "
     if not "!GROQ_API_KEY!"=="" setx GROQ_API_KEY "!GROQ_API_KEY!"
 ) else if "%llm_choice%"=="2" (
     set LLM_PROVIDER=lmstudio

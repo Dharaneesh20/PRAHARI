@@ -197,7 +197,7 @@ check_port() {
 
 # ── LLM PROVIDER SELECTION ─────────────────────────────────────────────────
 header "Select your LLM Provider:"
-echo "  [1] Groq (Cloud API - requires key)"
+echo "  [1] Nvidia (Cloud API - requires key)"
 echo "  [2] LMStudio (Local Server on port 1234)"
 echo "  [3] Ollama (Local Server on port 11434)"
 echo ""
@@ -211,15 +211,15 @@ case "$llm_choice" in
     1)
         export LLM_PROVIDER="groq"
         if [ -z "$GROQ_API_KEY" ]; then
-            read -p "Enter Groq API Key (or press enter if already set): " input_key
+            read -p "Enter Nvidia API Key (or press enter if already set): " input_key
             if [ -n "$input_key" ]; then
                 export GROQ_API_KEY="$input_key"
             fi
         fi
         if [ -z "$GROQ_API_KEY" ]; then
-            warn "GROQ_API_KEY is not set. Groq queries will fail if API key is missing."
+            warn "NVI_API_KEY is not set. Nvidia queries will fail if API key is missing."
         else
-            success "Groq LLM Provider configured."
+            success "Nvidia LLM Provider configured."
         fi
         ;;
     2)
