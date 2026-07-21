@@ -25,6 +25,11 @@ from app.services.catalyst.object import recognize_objects
 from app.services.catalyst.barcode import scan_barcode
 from app.services.catalyst.identity import scan_identity_doc
 from app.services.catalyst.moderation import moderate_image
+from app.services.catalyst.nlp import (
+    transcribe_audio_catalyst,
+    synthesize_speech_catalyst,
+    translate_text_catalyst,
+)
 from app.dependencies import get_current_user
 from app.models.user import User
 
@@ -211,3 +216,57 @@ async def identity_scanner(
         return await scan_identity_doc(bytes_data, doc_type=doc_type, filename=file.filename or "id.jpg", content_type=file.content_type or "image/jpeg")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Identity Scanner failed: {str(e)}")
+
+
+# ── QuickML Speech-to-Text ────────────────────────────────────────────────────
+
+@router.post("/speech-to-text", summary="Zoho Catalyst QuickML — Speech-to-Text")
+async def catalyst_stt(
+    file: Optional[UploadFile] = File(None),
+    language: str = Form("kn-IN"),
+):
+    try:
+        content = b""
+        ct = "audio/wav"
+        filename = "audio.wav"
+        if file:
+            content = await file.read()
+            if file.content_type:
+                ct = file.content_type
+            if file.filename:
+                filename = file.filename
+        return await transcribe_audio_catalyst(content, filename=filename, content_type=ct, language=language)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Catalyst QuickML STT failed: {str(e)}")
+
+
+# ── QuickML Text-to-Speech ────────────────────────────────────────────────────
+
+class CatalystTTSRequest(BaseModel):
+    text: str
+    language: str = "kn-IN"
+
+
+@router.post("/text-to-speech", summary="Zoho Catalyst QuickML — Text-to-Speech")
+async def catalyst_tts(req: CatalystTTSRequest):
+    try:
+        return await synthesize_speech_catalyst(req.text, req.language)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Catalyst QuickML TTS failed: {str(e)}")
+
+
+# ── QuickML Text Translation ──────────────────────────────────────────────────
+
+class CatalystTranslationRequest(BaseModel):
+    text: str
+    source_lang: str = "en-IN"
+    target_lang: str = "kn-IN"
+
+
+@router.post("/translate", summary="Zoho Catalyst QuickML — Text Translation")
+async def catalyst_translation(req: CatalystTranslationRequest):
+    try:
+        return await translate_text_catalyst(req.text, req.source_lang, req.target_lang)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Catalyst QuickML Translation failed: {str(e)}")
+
