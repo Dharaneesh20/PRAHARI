@@ -16,8 +16,19 @@ class Settings(BaseSettings):
 
     # JWT
     SECRET_KEY: str = "dev-secret-key-please-change-in-production-32chars"
+    JWT_SECRET: str = ""
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
+
+    # Zoho Catalyst Configuration
+    CATALYST_PROJECT_ID: str = ""
+    CATALYST_CLIENT_ID: str = ""
+    CATALYST_CLIENT_SECRET: str = ""
+    CATALYST_REFRESH_TOKEN: str = ""
+    CATALYST_DC: str = "IN"
+
+    # NVIDIA AI Hosted APIs
+    NVIDIA_API_KEY: str = ""
 
     # ML / DuckDB
     ML_DB_PATH: str = "../prahari-ai-ml/db/karnataka_fir.duckdb"
@@ -32,6 +43,10 @@ class Settings(BaseSettings):
     # Server
     HOST: str = "0.0.0.0"
     PORT: int = 8000
+
+    @property
+    def effective_jwt_secret(self) -> str:
+        return self.JWT_SECRET if self.JWT_SECRET else self.SECRET_KEY
 
     @property
     def cors_origins_list(self) -> list[str]:

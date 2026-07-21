@@ -106,7 +106,7 @@ export default function Analytics() {
                 <GlassCard key={z.zone} title={z.zone}>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-white/60">{language === "kn" ? "ಅಪಾಯದ ಅಂಕಗಳು" : "Risk Score"}</span>
-                    <span className="text-lg font-bold font-mono" style={{ color: RISK_COLOR(z.riskScore) }}>{z.riskScore}/100</span>
+                    <span className="text-lg font-bold font-mono" style={{ color: RISK_COLOR(z.score) }}>{z.score}/100</span>
                   </div>
                 </GlassCard>
               ))}

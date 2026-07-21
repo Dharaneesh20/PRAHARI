@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { AlertTriangle, Shield, Map as MapIcon, Clock, TrendingUp, Activity, ChevronRight } from "lucide-react";
+import { AlertTriangle, Shield, Map as MapIcon, Clock, TrendingUp, Activity, ChevronRight, Flame } from "lucide-react";
 import StatCard from "../components/StatCard";
 import GlassCard from "../components/GlassCard";
 import DateRangePicker, { type DateRange } from "../components/DateRangePicker";
@@ -9,7 +9,7 @@ import { SvgAreaChart } from "../components/SvgChart";
 import { SeverityBadge } from "../components/StatusBadge";
 import { kpi as kpiApi, auth as authApi, notifications as notificationApi } from "../lib/api";
 import type { KpiSummary, TrendPoint, HotspotZone, UserProfile } from "../lib/types";
-import { mockHotspots, mockKpiSummary, mockNotifications, mockTrend } from "../data/mockData";
+import { mockHotspots, mockKpiSummary, mockNotifications, mockTrend, mockCategories } from "../data/mockData";
 import { useAppContext } from "../context/AppContext";
 
 // Alert ticker item
@@ -112,7 +112,7 @@ export default function KpiDashboard() {
         <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           <StatCard label={t("activeCases")} value={kpiSummary?.totalActiveCases ?? 0} icon={<Activity className="w-5 h-5" />} accentColor="#D14343" delay={0.05} />
           <StatCard label={t("alertsToday")} value={kpiSummary?.alertsToday ?? 0} icon={<AlertTriangle className="w-5 h-5" />} accentColor="#D14343" delay={0.1} />
-          <StatCard label={t("onDutyUnits")} value={kpiSummary?.onDutyUnits ?? 0} icon={<Shield className="w-5 h-5" />} accentColor="#2E9E6C" delay={0.15} />
+          <StatCard label={t("highRiskZones")} value={3} icon={<Flame className="w-5 h-5" />} accentColor="#F97316" delay={0.15} />
           <StatCard label={t("avgResponse")} value={kpiSummary?.avgResponseTime ?? 0} suffix={language === "kn" ? " ನಿಮಿಷ" : " min"} decimals={1} icon={<Clock className="w-5 h-5" />} accentColor="#C9A227" trend={-0.8} trendLabel={language === "kn" ? " ಕಳೆದ ವಾರಕ್ಕೆ ಹೋಲಿಸಿದರೆ" : " vs last wk"} delay={0.2} />
           
           <StatCard
@@ -147,25 +147,27 @@ export default function KpiDashboard() {
             </GlassCard>
           </div>
 
-          {/* Patrol Mini-Widget */}
+          {/* Crime Category Breakdown Widget */}
           <div className="flex flex-col gap-5">
-            <GlassCard title={t("patrolUnits")} delay={0.32}
+            <GlassCard title={t("crimeBreakdown")} delay={0.32}
               action={
-                <button onClick={() => navigate("/map")} className="text-xs font-semibold flex items-center gap-1 text-[#C9A227]">
+                <button onClick={() => navigate("/analytics")} className="text-xs font-semibold flex items-center gap-1 text-[#C9A227]">
                   {t("viewAll")} <ChevronRight className="w-3 h-3" />
                 </button>
               }
             >
-              <div className="flex items-center gap-6">
-                <div className="text-center">
-                  <p className="text-3xl font-bold text-[#2E9E6C]">{kpiSummary?.onDutyUnits ?? 0}</p>
-                  <p className="text-[10px] uppercase tracking-widest mt-1 text-white/40">{t("onDuty")}</p>
-                </div>
-                <div className="w-px h-12 bg-white/10" />
-                <div className="text-center">
-                  <p className="text-3xl font-bold text-gray-500">{kpiSummary?.offDutyUnits ?? 0}</p>
-                  <p className="text-[10px] uppercase tracking-widest mt-1 text-white/40">{t("offDuty")}</p>
-                </div>
+              <div className="flex flex-col gap-3.5">
+                {mockCategories.map(cat => (
+                  <div key={cat.type} className="flex flex-col gap-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-semibold text-slate-800 dark:text-white/80">{cat.type}</span>
+                      <span className="font-mono text-slate-600 dark:text-white/60">{cat.count} cases ({cat.pct}%)</span>
+                    </div>
+                    <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-white/10 overflow-hidden">
+                      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${cat.pct}%`, backgroundColor: cat.color }} />
+                    </div>
+                  </div>
+                ))}
               </div>
             </GlassCard>
           </div>

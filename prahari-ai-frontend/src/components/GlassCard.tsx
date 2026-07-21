@@ -11,7 +11,7 @@ const glassPanelStyle = {
 
 interface GlassCardProps {
   children: ReactNode;
-  title?: string;
+  title?: ReactNode;
   subtitle?: string;
   action?: ReactNode;
   className?: string;

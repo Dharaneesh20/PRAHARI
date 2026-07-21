@@ -4,7 +4,7 @@ import {
   Paperclip, Database,
   ArrowUp, Mic, Camera, Check, Loader2,
   Plus, MessageSquare, Brain, ChevronDown, ChevronRight, Download,
-  Volume2, VolumeX, Menu, X, ScanLine, ImageIcon, Zap,
+  Volume2, VolumeX, Menu, X, ScanLine, ScanText, ImageIcon, Zap,
   Search, Pin, Star, Tag, Trash2, Edit3,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
@@ -213,7 +213,7 @@ function OcrScanPanel({
     accTextRef.current = "";
 
     try {
-      await ml.zia.ocrScan(
+      await ml.catalyst.ocrScan(
         file,
         selectedLang.startsWith("kn") ? "kn" : "en",
         (token) => {
@@ -241,32 +241,31 @@ function OcrScanPanel({
   };
 
   return (
-    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 12 }} className="mx-3 mt-2 shrink-0 rounded-2xl border border-amber-500/30 overflow-hidden" style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(24px)" }}>
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-lg flex items-center justify-center bg-amber-500/10 border border-amber-500/30">
-            <img src="/catalyst.svg" alt="Catalyst" className="w-4 h-4" />
-          </div>
-          <span className="text-sm font-bold text-white flex items-center gap-1.5">
-            Zoho Catalyst Zia™ OCR Engine
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 12 }} className="mx-3 mt-2 shrink-0 rounded-2xl border border-slate-300 dark:border-amber-500/40 bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-2xl backdrop-blur-2xl overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-100/90 dark:bg-white/5">
+        <div className="flex items-center gap-2.5">
+          <img src="/catalyst.svg" alt="Catalyst" className="w-5 h-5 inline shrink-0" />
+          <img src="/zoho-logo-web.svg" alt="Zoho" className="h-3.5 dark:hidden opacity-90 inline shrink-0" />
+          <img src="/zoho-logo-darkbg.svg" alt="Zoho" className="h-3.5 hidden dark:block opacity-90 inline shrink-0" />
+          <span className="text-sm font-bold text-slate-900 dark:text-white">
+            Zoho Catalyst Quick ML OCR Engine
           </span>
-          <span className="hidden sm:inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-mono text-[#C9A227] border border-[#C9A227]/30" style={{ background: "rgba(201,162,39,0.08)" }}>
-            <img src="/zoho-logo-darkbg.svg" alt="Zoho" className="h-2.5 opacity-80" />
-            <span>Zia™ Services</span>
+          <span className="hidden sm:inline-flex items-center gap-1 text-[10px] px-2.5 py-0.5 rounded-full font-mono font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+            <span>Powered by Zoho Catalyst Quick ML</span>
           </span>
         </div>
-        <button onClick={onClose} className="p-1 rounded-lg text-white/40 hover:text-white/80 transition active:scale-90">
+        <button onClick={onClose} className="p-1 rounded-lg text-slate-500 dark:text-white/50 hover:text-slate-900 dark:hover:text-white transition active:scale-90">
           <X className="w-4 h-4" />
         </button>
       </div>
 
       <div className="p-4 flex flex-col sm:flex-row gap-4">
-        <div className="relative shrink-0 w-full sm:w-44 h-36 rounded-xl overflow-hidden border border-white/10 flex items-center justify-center cursor-pointer" style={{ background: "rgba(255,255,255,0.03)" }} onClick={() => ocrState === "idle" && fileInputRef.current?.click()}>
+        <div className="relative shrink-0 w-full sm:w-44 h-36 rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 bg-slate-100/80 dark:bg-white/5 flex items-center justify-center cursor-pointer" onClick={() => ocrState === "idle" && fileInputRef.current?.click()}>
           {previewUrl ? (
             <>
               <img src={previewUrl} alt="OCR target" className="w-full h-full object-cover" />
               {ocrState === "scanning" && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center" style={{ background: "rgba(0,0,0,0.4)" }}>
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40">
                   <motion.div className="absolute left-0 right-0 h-0.5" style={{ background: "linear-gradient(to right, transparent, #C9A227, transparent)", boxShadow: "0 0 12px #C9A227" }} animate={{ top: ["0%", "100%", "0%"] }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }} />
                   <div className="absolute inset-2 pointer-events-none">
                     <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-[#C9A227] rounded-tl" />
@@ -280,15 +279,15 @@ function OcrScanPanel({
                 </div>
               )}
               {ocrState === "done" && (
-                <div className="absolute inset-0 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.35)" }}>
-                  <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "rgba(34,197,94,0.2)", border: "1.5px solid #22c55e" }}>
-                    <Check className="w-5 h-5 text-green-400" />
+                <div className="absolute inset-0 flex items-center justify-center bg-black/35">
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center bg-emerald-500/20 border border-emerald-500">
+                    <Check className="w-5 h-5 text-emerald-400" />
                   </div>
                 </div>
               )}
             </>
           ) : (
-            <div className="flex flex-col items-center gap-2 text-white/30">
+            <div className="flex flex-col items-center gap-2 text-slate-400 dark:text-white/40">
               <ImageIcon className="w-8 h-8" />
               <span className="text-[11px] font-medium text-center px-3">Click to select image<br/>(PNG, JPG, WEBP)</span>
             </div>
@@ -298,29 +297,29 @@ function OcrScanPanel({
 
         <div className="flex-1 flex flex-col gap-2 min-h-[120px]">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">
+            <span className="text-[10px] font-bold text-slate-500 dark:text-white/40 uppercase tracking-widest">
               {ocrState === "scanning" ? "Extracting text..." : ocrState === "done" ? "Text extracted" : ocrState === "error" ? "Error" : "Extracted Text"}
             </span>
             {ocrState === "scanning" && (
-              <span className="flex items-center gap-1 text-[10px] text-[#C9A227] font-mono">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#C9A227] animate-pulse" />
+              <span className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 font-mono">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
                 LIVE
               </span>
             )}
           </div>
 
-          <div className="flex-1 rounded-xl border border-white/10 p-3 overflow-y-auto text-xs font-mono leading-relaxed min-h-[80px] max-h-[140px]" style={{ background: "rgba(255,255,255,0.03)", color: ocrState === "error" ? "#f87171" : "rgba(255,255,255,0.8)", whiteSpace: "pre-wrap" }}>
+          <div className="flex-1 rounded-xl border border-slate-200 dark:border-white/15 p-3 overflow-y-auto text-xs font-mono leading-relaxed min-h-[80px] max-h-[140px] bg-slate-50 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100">
             {ocrState === "error"
-              ? `Error: ${errorMsg}`
+              ? <span className="text-red-500 dark:text-red-400">Error: {errorMsg}</span>
               : ocrState === "idle" && !extractedText
-              ? <span className="text-white/20 italic">Select an image to begin OCR scanning…</span>
-              : extractedText || <span className="text-white/20 italic">Waiting for tokens…</span>
+              ? <span className="text-slate-400 dark:text-white/30 italic">Select an image to begin OCR scanning…</span>
+              : extractedText || <span className="text-slate-400 dark:text-white/30 italic">Waiting for tokens…</span>
             }
           </div>
 
           <div className="flex items-center gap-2">
             {!previewUrl && (
-              <button onClick={() => fileInputRef.current?.click()} className="flex-1 py-2 rounded-xl text-xs font-bold transition active:scale-95" style={{ background: "rgba(201,162,39,0.15)", color: "#C9A227", border: "1px solid rgba(201,162,39,0.3)" }}>
+              <button onClick={() => fileInputRef.current?.click()} className="flex-1 py-2 rounded-xl text-xs font-bold transition active:scale-95 bg-amber-500 text-slate-950 hover:bg-amber-400 shadow-sm">
                 Select Image
               </button>
             )}
@@ -330,7 +329,7 @@ function OcrScanPanel({
               </button>
             )}
             {previewUrl && ocrState !== "scanning" && (
-              <button onClick={() => { setPreviewUrl(null); setOcrState("idle"); setExtractedText(""); setErrorMsg(""); accTextRef.current = ""; if (fileInputRef.current) fileInputRef.current.value = ""; }} className="px-3 py-2 rounded-xl text-xs font-bold transition text-white/40 hover:text-white/70" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>
+              <button onClick={() => { setPreviewUrl(null); setOcrState("idle"); setExtractedText(""); setErrorMsg(""); accTextRef.current = ""; if (fileInputRef.current) fileInputRef.current.value = ""; }} className="px-3 py-2 rounded-xl text-xs font-bold transition bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-white/70 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-white/10">
                 Clear
               </button>
             )}
@@ -443,8 +442,8 @@ export default function GptInterface() {
         const audioBlob = new Blob(audioChunksRef.current, { type: "audio/wav" });
         try {
           setIsListening(true);
-          const sttRes = await ml.zia.speechToText(audioBlob, selectedLang);
-          if (sttRes && sttRes.status === "success" && sttRes.text) {
+          const sttRes = await ml.ai.speechToText(audioBlob, selectedLang);
+          if (sttRes && sttRes.text) {
             setMessage(sttRes.text);
             handleSend(undefined, sttRes.text);
           } else {
@@ -467,7 +466,7 @@ export default function GptInterface() {
     if (isPlayingAudio === idx) { setIsPlayingAudio(null); if ("speechSynthesis" in window) window.speechSynthesis.cancel(); return; }
     setIsPlayingAudio(idx);
     try {
-      const audioUrl = await ml.zia.textToSpeech(text, selectedLang);
+      const audioUrl = await ml.ai.textToSpeech(text, selectedLang);
       if (audioUrl) { const audio = new Audio(audioUrl); audio.onended = () => setIsPlayingAudio(null); audio.play(); }
       else if ("speechSynthesis" in window) {
         window.speechSynthesis.cancel();
@@ -688,11 +687,16 @@ export default function GptInterface() {
           <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 rounded-xl text-slate-600 dark:text-white/60 hover:bg-slate-100 dark:hover:bg-white/10 transition shrink-0 active:scale-90" aria-label="Open recent chats">
             <Menu className="w-5 h-5" />
           </button>
-          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white/80 dark:bg-black/40 text-xs font-mono text-slate-800 dark:text-white/80 shadow-sm shrink-0">
-            <img src="/catalyst.svg" alt="Catalyst" className="w-4 h-4" />
-            <img src="/zoho-logo-web.svg" alt="Zoho" className="h-3.5 dark:hidden" />
-            <img src="/zoho-logo-darkbg.svg" alt="Zoho" className="h-3.5 hidden dark:block opacity-90" />
-            <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold uppercase tracking-wider">Zia Services</span>
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white/90 dark:bg-black/40 text-xs font-medium text-slate-800 dark:text-white/80 shadow-sm shrink-0">
+            <div className="flex items-center gap-1.5">
+              <img src="/catalyst.svg" alt="Catalyst" className="w-4 h-4 inline" />
+              <img src="/zoho-logo-web.svg" alt="Zoho" className="h-3.5 dark:hidden opacity-90" />
+              <img src="/zoho-logo-darkbg.svg" alt="Zoho" className="h-3.5 hidden dark:block opacity-90" />
+              <span className="text-xs font-bold text-slate-800 dark:text-amber-400">Zoho Catalyst</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded font-mono bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold border border-amber-500/20">Quick ML</span>
+            </div>
+            <span className="text-slate-300 dark:text-white/20">|</span>
+            <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">NVIDIA AI</span>
           </div>
           <div className="flex-1 min-w-0" />
           <div className="flex items-center bg-white/80 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl p-1 text-xs shadow-sm shrink-0">
@@ -711,20 +715,20 @@ export default function GptInterface() {
         <AnimatePresence>
           {(isRecording || isListening) && (
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mx-3 mt-2 overflow-hidden shrink-0">
-              <div className="p-3 rounded-2xl border border-amber-500/40 bg-black/80 backdrop-blur-xl shadow-2xl flex items-center justify-between gap-3 flex-wrap">
+              <div className="p-3 rounded-2xl border border-red-500/30 bg-slate-100/90 dark:bg-black/80 backdrop-blur-xl shadow-lg flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-3">
                   <div className="relative flex items-center justify-center shrink-0">
                     <span className="w-8 h-8 rounded-full bg-red-500/20 animate-ping absolute" />
-                    <div className="w-7 h-7 rounded-full bg-red-600 flex items-center justify-center text-white relative z-10 shadow-lg">
+                    <div className="w-7 h-7 rounded-full bg-red-600 flex items-center justify-center text-white relative z-10 shadow-md">
                       <Mic className="w-3.5 h-3.5 animate-pulse" />
                     </div>
                   </div>
                   <div>
-                    <span className="font-bold text-sm text-white">{isListening ? "Processing STT..." : "Listening..."}</span>
-                    <div className="text-[11px] text-slate-300 mt-0.5">Powered by Zia</div>
+                    <span className="font-bold text-sm text-slate-900 dark:text-white">{isListening ? "Processing STT..." : "Listening..."}</span>
+                    <div className="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5">Powered by NVIDIA AI</div>
                   </div>
                 </div>
-                <button type="button" onClick={stopVoiceRecording} className="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs shadow-lg transition flex items-center gap-1.5 shrink-0">
+                <button type="button" onClick={stopVoiceRecording} className="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs shadow-md transition flex items-center gap-1.5 shrink-0">
                   <Check className="w-3.5 h-3.5" /> Stop & Transcribe
                 </button>
               </div>
@@ -766,20 +770,24 @@ export default function GptInterface() {
               {chat.map((msg, idx) => (
                 <motion.div key={idx} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ type: "spring", stiffness: 260, damping: 22 }} className={`flex w-full gap-2 ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
                   {msg.sender === "bot" && <div className="shrink-0 mt-1"><LiquidOrb size={28} isThinking={sendState === "thinking" && !msg.text} /></div>}
-                  <div className="max-w-[88%] sm:max-w-[80%] px-4 py-3 text-sm leading-relaxed" style={msg.sender === "user" ? { background: "linear-gradient(135deg, #C9A227 0%, #b8901f 100%)", color: "#000", borderRadius: "18px 18px 5px 18px", fontWeight: 500, wordBreak: "break-word", overflowWrap: "break-word" } : { backdropFilter: "blur(16px)", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.88)", borderRadius: "5px 18px 18px 18px", wordBreak: "break-word", overflowWrap: "break-word", overflowX: "auto" }}>
+                  <div className={`max-w-[88%] sm:max-w-[80%] px-4 py-3 text-sm leading-relaxed overflow-x-auto ${
+                    msg.sender === "user"
+                      ? "bg-gradient-to-r from-amber-500 to-amber-600 text-black font-semibold rounded-2xl rounded-tr-xs shadow-md"
+                      : "bg-slate-100 dark:bg-white/[0.06] border border-slate-200/80 dark:border-white/10 text-slate-900 dark:text-slate-100 rounded-2xl rounded-tl-xs shadow-sm"
+                  }`}>
                     {msg.sender === "bot" ? (
                       <>
                         <ThinkingBlock thinking={msg.thinking} isStreaming={sendState === "thinking" && !msg.text} />
                         {msg.text ? (
                           <>
-                            <div className="prose prose-sm dark:prose-invert max-w-none text-white prose-p:leading-relaxed prose-th:text-white prose-td:text-white/80 prose-table:border-collapse prose-th:border prose-th:border-white/20 prose-th:p-2 prose-td:border prose-td:border-white/10 prose-td:p-2 prose-pre:overflow-x-auto prose-pre:max-w-full">
+                            <div className="prose prose-sm dark:prose-invert max-w-none text-slate-900 dark:text-slate-100 prose-p:leading-relaxed prose-headings:text-slate-900 dark:prose-headings:text-white prose-strong:text-slate-900 dark:prose-strong:text-white prose-code:text-amber-600 dark:prose-code:text-amber-400 prose-th:text-slate-900 dark:prose-th:text-white prose-td:text-slate-800 dark:prose-td:text-slate-200 prose-table:border-collapse prose-th:border prose-th:border-slate-300 dark:prose-th:border-white/20 prose-th:p-2 prose-td:border prose-td:border-slate-200 dark:prose-td:border-white/10 prose-td:p-2 prose-pre:overflow-x-auto prose-pre:max-w-full">
                               <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
                             </div>
-                            <div className="mt-3 pt-2 border-t border-white/10 flex items-center justify-between flex-wrap gap-2">
-                              <button type="button" onClick={() => handlePlayTTS(idx, msg.text)} title="Read Aloud" className="text-xs font-semibold inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition">
-                                {isPlayingAudio === idx ? <><VolumeX className="w-3.5 h-3.5 text-amber-400" /><span className="text-[11px] text-amber-400">Stop</span></> : <><Volume2 className="w-3.5 h-3.5 text-amber-400" /><span className="text-[11px]">Read Aloud</span></>}
+                            <div className="mt-3 pt-2 border-t border-slate-200 dark:border-white/10 flex items-center justify-between flex-wrap gap-2">
+                              <button type="button" onClick={() => handlePlayTTS(idx, msg.text)} title="Read Aloud" className="text-xs font-semibold inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-300 dark:border-white/10 bg-slate-200/60 dark:bg-white/5 hover:bg-slate-300/60 dark:hover:bg-white/10 text-slate-700 dark:text-white/70 hover:text-slate-900 dark:hover:text-white transition">
+                                {isPlayingAudio === idx ? <><VolumeX className="w-3.5 h-3.5 text-amber-500" /><span className="text-[11px] text-amber-500">Stop</span></> : <><Volume2 className="w-3.5 h-3.5 text-amber-500" /><span className="text-[11px]">Read Aloud</span></>}
                               </button>
-                              <div className="flex items-center gap-1 text-[10px] text-white/40 font-mono"><img src="/catalyst.svg" alt="Catalyst" className="w-3 h-3" /><span>Zia Voice</span></div>
+                              <div className="flex items-center gap-1 text-[10px] text-slate-500 dark:text-white/40 font-mono"><span>Powered by NVIDIA AI</span></div>
                             </div>
                           </>
                         ) : (

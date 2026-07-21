@@ -46,8 +46,7 @@ export default function Sidebar() {
 
       {/* ── Brand Header ──────────────────────────────── */}
       <div
-        className="p-5 flex items-center gap-3 relative z-10"
-        style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}
+        className="p-5 flex items-center gap-3 relative z-10 border-b border-slate-200/80 dark:border-white/10"
       >
         <motion.div
           animate={{ scale: [1, 1.04, 1] }}
@@ -66,11 +65,10 @@ export default function Sidebar() {
           />
         </motion.div>
         <div>
-          <h1 className="text-base font-bold text-white tracking-wide leading-none">
+          <h1 className="text-base font-bold text-slate-900 dark:text-white tracking-wide leading-none">
             Prahari AI
           </h1>
-          <p className="text-[10px] uppercase font-bold tracking-widest mt-1"
-            style={{ color: "rgba(201,162,39,0.8)" }}>
+          <p className="text-[10px] uppercase font-bold tracking-widest mt-1 text-amber-600 dark:text-amber-400">
             {t("commandCenter")}
           </p>
         </div>
@@ -107,16 +105,11 @@ export default function Sidebar() {
 
                 <button
                   onClick={() => navigate(item.path)}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl relative z-10 transition-all duration-200 group"
-                  style={{
-                    color: isActive ? "#fff" : "rgba(255,255,255,0.45)",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isActive) (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.85)";
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive) (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.45)";
-                  }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl relative z-10 transition-all duration-200 group ${
+                    isActive
+                      ? "text-slate-950 dark:text-white font-semibold"
+                      : "text-slate-600 dark:text-white/50 hover:text-slate-900 dark:hover:text-white/80"
+                  }`}
                 >
                   <motion.div
                     whileHover={{ scale: 1.15 }}
@@ -127,10 +120,7 @@ export default function Sidebar() {
                       style={{ color: isActive ? "#C9A227" : "inherit" }}
                     />
                   </motion.div>
-                  <span
-                    className="text-sm font-medium tracking-wide"
-                    style={{ fontWeight: isActive ? 600 : 400 }}
-                  >
+                  <span className="text-sm tracking-wide">
                     {t(item.labelKey || item.name)}
                   </span>
 
@@ -151,16 +141,7 @@ export default function Sidebar() {
 
       {/* ── Profile Card ──────────────────────────────── */}
       <div className="p-3 relative z-10">
-        <div
-          className="glass-specular p-4 rounded-2xl cursor-pointer group relative overflow-hidden"
-          style={{
-            background: "rgba(255,255,255,0.04)",
-            border: "1px solid rgba(255,255,255,0.09)",
-            transition: "background 0.2s",
-          }}
-          onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)")}
-          onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)")}
-        >
+        <div className="p-4 rounded-2xl bg-slate-100/80 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 transition-all">
           <div className="flex items-center gap-3 relative z-10">
             {/* Avatar with animated gradient ring */}
             <div className="relative">
@@ -169,38 +150,26 @@ export default function Sidebar() {
                 style={{
                   background: "linear-gradient(135deg, #1B2A4A 0%, #3F5C86 100%)",
                   boxShadow: "0 0 0 2px rgba(201,162,39,0.5), 0 0 12px rgba(201,162,39,0.25)",
-                  animation: "gradientRing 4s ease infinite",
                 }}
               >
                 {initials}
               </div>
-              {/* Breathing green status dot */}
               <div
-                className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2"
-                style={{
-                  background: "#2E9E6C",
-                  borderColor: "rgba(15,20,40,0.9)",
-                  animation: "statusBreath 2.5s ease-in-out infinite",
-                }}
+                className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white dark:border-slate-900 bg-emerald-500"
               />
             </div>
 
-            <div>
-              <p className="text-sm font-semibold text-white leading-none">{profile?.name || t("loadingProfile")}</p>
-              <p className="text-[10px] mt-1 flex items-center gap-1.5"
-                style={{ color: "rgba(255,255,255,0.45)" }}>
-                <span
-                  className="w-1.5 h-1.5 rounded-full inline-block"
-                  style={{ background: "#2E9E6C", animation: "breathePulse 2s ease-in-out infinite" }}
-                />
-                {profile?.station || "Karnataka Police"} · On Duty
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{profile?.name || t("loadingProfile")}</p>
+              <p className="text-[10px] mt-1 flex items-center gap-1.5 text-slate-500 dark:text-white/45 truncate">
+                <span className="w-1.5 h-1.5 rounded-full inline-block bg-emerald-500 shrink-0" />
+                {profile?.station || "Karnataka Police"}
               </p>
             </div>
           </div>
           <button
             onClick={logout}
-            className="mt-3 w-full rounded-xl px-3 py-2 text-xs font-bold transition-all hover:bg-white/10"
-            style={{ color: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.08)" }}
+            className="mt-3 w-full rounded-xl px-3 py-2 text-xs font-bold transition-all bg-slate-200/70 dark:bg-white/10 text-slate-800 dark:text-white/80 hover:bg-slate-300 dark:hover:bg-white/20 border border-slate-300/80 dark:border-white/10"
           >
             {t("logout")}
           </button>
@@ -209,18 +178,23 @@ export default function Sidebar() {
 
       {/* ── Deployed on Zoho Catalyst Badge Card ───────────────────── */}
       <div className="px-3 pb-3 relative z-10">
-        <div
-          className="p-3 rounded-2xl border border-white/10 flex items-center justify-between gap-2"
-          style={{ background: "rgba(255,255,255,0.03)" }}
-        >
-          <div className="flex items-center gap-2">
-            <img src="/catalyst.svg" alt="Catalyst" className="w-5 h-5 inline" />
-            <div>
-              <p className="text-[10px] uppercase font-bold tracking-wider text-white/50 leading-none">Deployed On</p>
-              <p className="text-xs font-bold text-amber-400 mt-0.5">Zoho Catalyst</p>
-            </div>
+        <div className="p-3 rounded-2xl border border-slate-200/80 dark:border-white/10 bg-slate-100/90 dark:bg-black/40 backdrop-blur-md flex flex-col gap-2 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500 dark:text-white/40">
+              Deployed On
+            </span>
+            <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold border border-amber-500/20">
+              Quick ML & AppSail
+            </span>
           </div>
-          <img src="/zoho-logo-darkbg.svg" alt="Zoho" className="h-3.5 inline opacity-85" />
+          <div className="flex items-center gap-2 pt-1 border-t border-slate-200/60 dark:border-white/10">
+            <img src="/catalyst.svg" alt="Catalyst" className="w-5 h-5 shrink-0" />
+            <span className="text-xs font-bold text-slate-800 dark:text-amber-400 flex-1">
+              Zoho Catalyst
+            </span>
+            <img src="/zoho-logo-web.svg" alt="Zoho" className="h-3.5 dark:hidden opacity-90 shrink-0" />
+            <img src="/zoho-logo-darkbg.svg" alt="Zoho" className="h-3.5 hidden dark:block opacity-90 shrink-0" />
+          </div>
         </div>
       </div>
     </aside>

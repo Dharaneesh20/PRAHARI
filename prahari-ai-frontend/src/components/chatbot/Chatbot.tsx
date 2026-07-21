@@ -144,8 +144,8 @@ function Chatbot() {
                   </h3>
                   <div className="flex items-center gap-1.5 text-[10px] text-amber-500 font-semibold tracking-wider">
                     <img src="/catalyst.svg" alt="Catalyst" className="w-3 h-3 inline" />
-                    <img src="/zoho-logo-darkbg.svg" alt="Zoho" className="h-2.5 inline" />
-                    <span>Zia Voice</span>
+                    <img src="/zoho-logo-darkbg.svg" alt="Zoho" className="h-2.5 inline opacity-90" />
+                    <span>NVIDIA AI & Zoho Catalyst (Quick ML)</span>
                   </div>
                 </div>
               </div>

@@ -310,7 +310,7 @@ export const ml = {
   forecast: (district: string, crime_group: string) =>
     apiFetch<unknown>(`/api/v1/crime/forecast?district=${encodeURIComponent(district)}&crime_group=${encodeURIComponent(crime_group)}`),
 
-  zia: {
+  ai: {
     speechToText: async (audioBlob: Blob, language = "kn-IN") => {
       const formData = new FormData();
       formData.append("file", audioBlob, "speech.wav");
@@ -319,13 +319,13 @@ export const ml = {
       const headers: Record<string, string> = {};
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
-      const res = await fetch(`${BASE_URL}/api/v1/zia/speech-to-text`, {
+      const res = await fetch(`${BASE_URL}/api/v1/ai/speech-to-text`, {
         method: "POST",
         headers,
         body: formData,
       });
       if (!res.ok) throw new Error("STT failed");
-      return res.json() as Promise<{ text: string; detected_language: string; provider: string }>;
+      return res.json() as Promise<{ text: string; detected_language: string; provider: string; status?: string }>;
     },
 
     textToSpeech: async (text: string, language = "kn-IN") => {
@@ -333,7 +333,7 @@ export const ml = {
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
-      const res = await fetch(`${BASE_URL}/api/v1/zia/text-to-speech`, {
+      const res = await fetch(`${BASE_URL}/api/v1/ai/text-to-speech`, {
         method: "POST",
         headers,
         body: JSON.stringify({ text, language }),
@@ -347,20 +347,31 @@ export const ml = {
       return URL.createObjectURL(blob);
     },
 
-    translate: async (text: string, target_lang = "kn-IN") => {
-      return apiFetch<{ translated_text: string; source_lang: string; target_lang: string }>("/api/v1/zia/translate", {
+    translate: async (text: string, target_lang = "kn-IN", source_lang = "en-IN") => {
+      return apiFetch<{ translated_text: string; source_lang: string; target_lang: string; provider: string }>("/api/v1/ai/translate", {
         method: "POST",
-        body: JSON.stringify({ text, target_lang }),
+        body: JSON.stringify({ text, target_lang, source_lang }),
       });
     },
 
+    chat: async (messages: Array<{ role: string; content: string }>, model = "meta/llama-3.1-70b-instruct") => {
+      return apiFetch<{ response: string; provider: string; model: string }>("/api/v1/ai/chat", {
+        method: "POST",
+        body: JSON.stringify({ messages, model }),
+      });
+    },
+
+    summarize: async (text: string, max_length = 250) => {
+      return apiFetch<{ summary: string; provider: string }>("/api/v1/ai/summarize", {
+        method: "POST",
+        body: JSON.stringify({ text, max_length }),
+      });
+    },
+  },
+
+  catalyst: {
     /**
-     * Image OCR — streams extracted text tokens from NVIDIA vision LLM.
-     * @param imageFile  The image File object (PNG/JPG/WEBP)
-     * @param language   "en" | "kn" (Kannada)
-     * @param onToken    Callback for each text token
-     * @param onDone     Called when streaming completes
-     * @param onError    Called on error with message string
+     * Image OCR — streams extracted text tokens from Zoho Catalyst OCR.
      */
     ocrScan: async (
       imageFile: File,
@@ -378,7 +389,7 @@ export const ml = {
       const langCode = language === "kn" ? "kan" : "eng";
       formData.append("language", langCode);
 
-      const res = await fetch(`${BASE_URL}/api/v1/zia/ocr`, {
+      const res = await fetch(`${BASE_URL}/api/v1/catalyst/ocr`, {
         method: "POST",
         headers,
         body: formData,
@@ -413,7 +424,7 @@ export const ml = {
             if (parsed.status === "unconfigured") {
               onError?.(
                 parsed.message ||
-                "Zoho Catalyst OCR credentials are not set. Please configure CATALYST_PROJECT_ID and CATALYST_ZIA_TOKEN in backend .env."
+                "Zoho Catalyst OCR credentials are not set. Please configure CATALYST_PROJECT_ID, CATALYST_CLIENT_ID, CATALYST_CLIENT_SECRET, and CATALYST_REFRESH_TOKEN in backend .env."
               );
               return;
             }
@@ -424,6 +435,59 @@ export const ml = {
         }
       }
       onDone?.();
+    },
+
+    textAnalysis: async (text: string) => {
+      return apiFetch<unknown>("/api/v1/catalyst/text-analysis", {
+        method: "POST",
+        body: JSON.stringify({ text }),
+      });
+    },
+
+    faceAnalysis: async (imageFile: File) => {
+      const formData = new FormData();
+      formData.append("file", imageFile, imageFile.name);
+      return apiFetch<unknown>("/api/v1/catalyst/face-analysis", {
+        method: "POST",
+        body: formData,
+      });
+    },
+
+    objectRecognition: async (imageFile: File) => {
+      const formData = new FormData();
+      formData.append("file", imageFile, imageFile.name);
+      return apiFetch<unknown>("/api/v1/catalyst/object-recognition", {
+        method: "POST",
+        body: formData,
+      });
+    },
+
+    imageModeration: async (imageFile: File) => {
+      const formData = new FormData();
+      formData.append("file", imageFile, imageFile.name);
+      return apiFetch<unknown>("/api/v1/catalyst/image-moderation", {
+        method: "POST",
+        body: formData,
+      });
+    },
+
+    barcodeScan: async (imageFile: File) => {
+      const formData = new FormData();
+      formData.append("file", imageFile, imageFile.name);
+      return apiFetch<unknown>("/api/v1/catalyst/barcode", {
+        method: "POST",
+        body: formData,
+      });
+    },
+
+    identityScan: async (imageFile: File, docType = "auto") => {
+      const formData = new FormData();
+      formData.append("file", imageFile, imageFile.name);
+      formData.append("doc_type", docType);
+      return apiFetch<unknown>("/api/v1/catalyst/identity", {
+        method: "POST",
+        body: formData,
+      });
     },
   },
 

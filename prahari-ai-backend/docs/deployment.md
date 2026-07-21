@@ -1,201 +1,143 @@
-# PRAHARI AI — Zoho Catalyst & Zia Services Deployment Guide
+# PRAHARI AI — Zoho Catalyst & NVIDIA AI Hosted Services Deployment Guide
 
-This guide provides step-by-step instructions for setting up a **Zoho Catalyst** account, creating a project, enabling **Zia Services** (Speech-to-Text, Text-to-Speech, Neural Translation, and ML OCR), obtaining API credentials, and deploying the PRAHARI AI backend.
-
----
-
-## Table of Contents
-1. [Prerequisites](#1-prerequisites)
-2. [Step 1: Create a Zoho Catalyst Account](#step-1-create-a-zoho-catalyst-account)
-3. [Step 2: Create a Catalyst Project](#step-2-create-a-catalyst-project)
-4. [Step 3: Access Zia Services in Catalyst Console](#step-3-access-zia-services-in-catalyst-console)
-5. [Step 4: Generate Zoho OAuth Token & Get Project ID](#step-4-generate-zoho-oauth-token--get-project-id)
-6. [Step 5: Configure Backend Environment Variables](#step-5-configure-backend-environment-variables)
-7. [Step 6: Test Zia Endpoints Locally](#step-6-test-zia-endpoints-locally)
-8. [Step 7: Deploy Backend to Zoho Catalyst AppSail (Serverless)](#step-7-deploy-backend-to-zoho-catalyst-appsail-serverless)
-9. [API Reference & Endpoints](#api-reference--endpoints)
+This guide provides comprehensive, production-grade setup and deployment instructions for **PRAHARI AI**, integrating **NVIDIA AI Hosted APIs** for Speech, Voice Synthesis, Translation, and LLM Inference, alongside **Zoho Catalyst** for Optical Character Recognition (OCR), Vision AI, Text Analytics, Barcode Scanning, Identity Scanning, and Image Moderation.
 
 ---
 
-## 1. Prerequisites
-- A valid email address to sign up on [Zoho Catalyst](https://catalyst.zoho.com).
-- Python 3.12+ installed on your deployment server or local development machine.
-- Node.js 18+ and `catalyst-cli` (optional for local deployment, required for AppSail deployment).
+## 1. Architecture Overview
+
+| Microservice | Provider | Description & Scope |
+| :--- | :--- | :--- |
+| **Speech-to-Text** | NVIDIA AI Hosted APIs | Multilingual speech transcription (Kannada `kn-IN` & English `en-IN`) |
+| **Text-to-Speech** | NVIDIA AI Hosted APIs | High-quality audio voice synthesis |
+| **Neural Translation** | NVIDIA AI Hosted APIs | Real-time Kannada ↔ English text translation |
+| **LLM Chat & Intelligence** | NVIDIA AI Hosted APIs | Open-source LLM inference (Llama-3 / Mistral) |
+| **Text Summarization** | NVIDIA AI Hosted APIs | Long report and FIR summarization |
+| **Optical Character Recognition** | Zoho Catalyst | Printed & handwritten document OCR scanning |
+| **Text Analytics** | Zoho Catalyst | Key phrase extraction, sentiment analysis, entity detection |
+| **Face Analytics** | Zoho Catalyst | Facial detection and demographic attribute analysis |
+| **Object Recognition** | Zoho Catalyst | Identification of vehicles, weapons, and evidence items |
+| **Barcode Scanner** | Zoho Catalyst | QR code and barcode extraction |
+| **Identity Scanner** | Zoho Catalyst | Automated government ID card parsing |
+| **Image Moderation** | Zoho Catalyst | Automated explicit/unsafe content screening |
 
 ---
 
-## Step 1: Create a Zoho Catalyst Account
+## 2. Zoho Catalyst Setup & Refresh Token Generation
 
-1. Open your web browser and navigate to **[https://catalyst.zoho.com](https://catalyst.zoho.com)**.
-2. Click **Sign Up** (or **Log In** if you already have a Zoho Account).
-3. Complete the registration form with your email and organization details.
-4. Verify your email address via the confirmation link sent by Zoho.
+Zoho Catalyst requires OAuth 2.0 authentication. Rather than using short-lived tokens, PRAHARI AI automatically generates access tokens via an OAuth **Refresh Token**.
 
----
+### Step 1: Create a Catalyst Project
+1. Log in to the [Zoho Catalyst Console](https://catalyst.zoho.com).
+2. Click **Create Project**, enter `PRAHARI-AI`, and select your Data Center (e.g., `IN`, `US`, `EU`).
 
-## Step 2: Create a Catalyst Project
+### Step 2: Register a Self-Client in Zoho API Console
+1. Navigate to the [Zoho API Console](https://api-console.zoho.com).
+2. Click **Add Client** and choose **Self Client**.
+3. Copy your `Client ID` and `Client Secret`.
 
-1. After logging into the **Zoho Catalyst Console** (`https://console.catalyst.zoho.com`), click **Create Project**.
-2. Enter a **Project Name** (e.g., `PRAHARI-AI`).
-3. Select your preferred **Data Center / Region** (e.g., *IN - India* or *US - United States*).
-4. Click **Create**.
-5. Once created, copy the **Project ID** displayed in the project overview header. You will need this for your `.env` file (`CATALYST_PROJECT_ID`).
-
----
-
-## Step 3: Access Zia Services in Catalyst Console
-
-Zoho Catalyst Zia provides built-in AI/ML microservices.
-
-1. In the left navigation menu of the Catalyst Console, expand **Zia Services** / **AI & Machine Learning**.
-2. You will see available microservices:
-   - **Speech-to-Text (STT)**: Converts spoken audio files (Kannada `kn-IN`, English `en-IN`) into text.
-   - **Text-to-Speech (TTS)**: Converts text strings into natural-sounding audio streams.
-   - **Neural Translation**: Translates text between English and Kannada.
-   - **Optical Character Recognition (OCR)**: Extracts text from uploaded image files (PNG, JPG, TIFF, BMP, PDF).
-3. Ensure these services are enabled for your project (they are enabled by default for all Catalyst projects).
-
----
-
-## Step 4: Generate Zoho OAuth Token & Get Project ID
-
-To authenticate API requests sent from the backend to Catalyst Zia Services:
-
-### Option A: Using Catalyst API Portal / Developer Console (Recommended)
-1. Go to the **Zoho Developer Console**: [https://api-console.zoho.com](https://api-console.zoho.com).
-2. Click **Add Client** and select **Self Client**.
-3. Copy the generated **Client ID** and **Client Secret**.
-4. In the **Generate Code** tab, enter the required Zia scope:
+### Step 3: Generate Grant Code & Refresh Token
+1. In the **Generate Code** tab of Self Client, enter the required Catalyst scope:
+   ```text
+   Catalyst.projects.READ,Catalyst.ml.READ,Catalyst.ml.CREATE
    ```
-   Catalyst.zia.READ,Catalyst.zia.CREATE,Catalyst.projects.READ
+2. Set Time Duration to 10 minutes and specify a Scope Description (e.g., `PRAHARI AI Backend Authorization`).
+3. Click **Generate** to copy the single-use **Grant Code**.
+4. Exchange the Grant Code for a **Refresh Token** via HTTP POST request:
+   ```bash
+   curl -X POST "https://accounts.zoho.in/oauth/v2/token" \
+     -d "grant_type=authorization_code" \
+     -d "client_id=YOUR_CLIENT_ID" \
+     -d "client_secret=YOUR_CLIENT_SECRET" \
+     -d "code=YOUR_GENERATED_GRANT_CODE"
    ```
-5. Set the duration to **10 minutes** (or generate a permanent Refresh Token).
-6. Exchange the code for an Access Token (`Zoho-oauthtoken`).
-
-### Option B: Using Permanent API Key / Access Token
-1. In the Catalyst Console, go to **Settings** > **Developer Tools** > **API Tokens**.
-2. Click **Generate Token**.
-3. Copy the token string (`CATALYST_ZIA_TOKEN`).
+5. Copy the returned `refresh_token`.
 
 ---
 
-## Step 5: Configure Backend Environment Variables
+## 3. NVIDIA AI Hosted APIs Setup
 
-Open or create the `.env` file in `prahari-ai-backend/.env`:
+1. Visit [NVIDIA API Catalog](https://build.nvidia.com).
+2. Sign in or register for an NVIDIA Developer account.
+3. Select an AI model (e.g., `meta/llama-3.1-70b-instruct` or Parakeet STT).
+4. Click **Get API Key** and generate your `NVIDIA_API_KEY` (`nvapi-...`).
+
+---
+
+## 4. Environment Configuration
+
+Create or update the `.env` file in `prahari-ai-backend/`:
 
 ```env
-# ── Zoho Catalyst Credentials ─────────────────────────────────────────────
-CATALYST_PROJECT_ID=12345678901234567       # Replace with your Catalyst Project ID
-CATALYST_ZIA_TOKEN=Zoho-oauthtoken-your-token # Replace with your token
-ZIA_BASE_URL=https://api.catalyst.zoho.com/baas/v1/project
+# ─── JWT Security ─────────────────────────────────────────────────────────────
+SECRET_KEY=dev-secret-key-please-change-in-production-32chars
+JWT_SECRET=production-jwt-signing-secret-key-32-chars
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=480
 
-# ── LLM API Keys ──────────────────────────────────────────────────────────
-NVIDIA_API_KEY=nvapi-your-nvidia-api-key
-GROQ_API_KEY=gsk_your-groq-api-key
+# ─── Zoho Catalyst Configuration ──────────────────────────────────────────────
+CATALYST_PROJECT_ID=10001928374
+CATALYST_CLIENT_ID=1000.XXXXXXXXXXXXXXXXXXXXXXXX
+CATALYST_CLIENT_SECRET=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+CATALYST_REFRESH_TOKEN=1000.YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY.ZZZZZZZZZZZZZZZZ
+CATALYST_DC=IN
 
-# ── Server Config ─────────────────────────────────────────────────────────
+# ─── NVIDIA AI Hosted APIs ───────────────────────────────────────────────────
+NVIDIA_API_KEY=nvapi-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+# ─── Groq Fallback LLM (Optional) ─────────────────────────────────────────────
+GROQ_API_KEY=gsk_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+# ─── Server Configuration ─────────────────────────────────────────────────────
 HOST=0.0.0.0
 PORT=8000
-SECRET_KEY=prahari-ai-secret-key-change-in-production-min-32-chars
+CORS_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost:4173
 ```
 
 ---
 
-## Step 6: Test Zia Endpoints Locally
+## 5. Deployment Options
 
-Start the backend server:
-
+### Local Development Server
 ```bash
 cd prahari-ai-backend
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-python -m uvicorn app.main:app --reload --port 8000
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python3 run.py
 ```
 
-Verify endpoints using `curl` or Postman:
-
-### 1. Test Speech-to-Text (STT)
-```bash
-curl -X POST "http://localhost:8000/api/v1/zia/speech-to-text" \
-  -H "Authorization: Bearer <YOUR_JWT_TOKEN>" \
-  -F "file=@sample_audio.wav" \
-  -F "language=kn-IN"
-```
-
-### 2. Test Text-to-Speech (TTS)
-```bash
-curl -X POST "http://localhost:8000/api/v1/zia/text-to-speech" \
-  -H "Authorization: Bearer <YOUR_JWT_TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{"text": "ಪ್ರಹರಿ AI ಗೆ ಸ್ವಾಗತ", "language": "kn-IN"}' \
-  --output response.mp3
-```
-
-### 3. Test Neural Translation
-```bash
-curl -X POST "http://localhost:8000/api/v1/zia/translate" \
-  -H "Authorization: Bearer <YOUR_JWT_TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{"text": "Show theft cases in Bengaluru", "target_lang": "kn-IN"}'
-```
-
-### 4. Test Catalyst ML OCR
-```bash
-curl -X POST "http://localhost:8000/api/v1/zia/ocr" \
-  -H "Authorization: Bearer <YOUR_JWT_TOKEN>" \
-  -F "file=@sample_fir.png" \
-  -F "language=eng"
-```
+### Deployment to Zoho Catalyst AppSail
+1. Install Catalyst CLI:
+   ```bash
+   npm install -g zcatalyst-cli
+   ```
+2. Log in and initialize:
+   ```bash
+   catalyst login
+   catalyst init
+   ```
+3. Select **AppSail** build target (Python environment) and deploy:
+   ```bash
+   catalyst deploy
+   ```
 
 ---
 
-## Step 7: Deploy Backend to Zoho Catalyst AppSail (Serverless)
+## 6. API Endpoint Specification
 
-Zoho Catalyst **AppSail** allows hosting Python FastAPI standalone web services directly on Zoho infrastructure.
+### NVIDIA AI Hosted Endpoints
+- `POST /api/v1/ai/speech-to-text` — Audio file upload to text transcription.
+- `POST /api/v1/ai/text-to-speech` — Text payload to binary speech synthesis (`audio/mpeg`).
+- `POST /api/v1/ai/translate` — Bidirectional Kannada ↔ English neural translation.
+- `POST /api/v1/ai/chat` — Open-source LLM chat completion.
+- `POST /api/v1/ai/summarize` — Long report and FIR summarization.
 
-### 1. Install Catalyst CLI
-```bash
-npm install -g zcatalyst-cli
-```
-
-### 2. Log in to Catalyst CLI
-```bash
-catalyst login
-```
-
-### 3. Initialize AppSail in Project Root
-```bash
-cd prahari-ai-backend
-catalyst init
-```
-- Select **AppSail** when prompted.
-- Choose Python 3.12 stack.
-- Name the app `prahari-backend`.
-
-### 4. Create `app-sail.json` configuration file in `prahari-ai-backend/`:
-```json
-{
-  "command": "python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT",
-  "stack": "python3.12",
-  "env_variables": {
-    "CATALYST_PROJECT_ID": "12345678901234567",
-    "ZIA_BASE_URL": "https://api.catalyst.zoho.com/baas/v1/project"
-  }
-}
-```
-
-### 5. Deploy to Production
-```bash
-catalyst deploy
-```
-Once deployment completes, Catalyst CLI will output your live public web service URL (e.g., `https://prahari-backend-12345.appsail.zoho.com`).
-
----
-
-## API Reference & Endpoints
-
-| Endpoint | Method | Input | Description |
-| :--- | :--- | :--- | :--- |
-| `/api/v1/zia/speech-to-text` | `POST` | `multipart/form-data` (`file`, `language`) | Audio transcription via Catalyst STT |
-| `/api/v1/zia/text-to-speech` | `POST` | `application/json` (`text`, `language`) | Voice synthesis via Catalyst TTS |
-| `/api/v1/zia/translate` | `POST` | `application/json` (`text`, `target_lang`) | Kannada ↔ English Neural Translation |
-| `/api/v1/zia/ocr` | `POST` | `multipart/form-data` (`file`, `language`) | Image OCR via Catalyst Zia ML OCR API |
+### Zoho Catalyst Microservice Endpoints
+- `POST /api/v1/catalyst/ocr` — Document image text extraction (SSE Live Stream).
+- `POST /api/v1/catalyst/text-analysis` — Entity, sentiment, and keyword detection.
+- `POST /api/v1/catalyst/face-analysis` — Face detection and demographic attribute analysis.
+- `POST /api/v1/catalyst/object-recognition` — Object identification in evidence files.
+- `POST /api/v1/catalyst/image-moderation` — Explicit image content detection.
+- `POST /api/v1/catalyst/barcode` — QR code & barcode scanning.
+- `POST /api/v1/catalyst/identity` — ID card parser (Aadhaar / Passport / DL).

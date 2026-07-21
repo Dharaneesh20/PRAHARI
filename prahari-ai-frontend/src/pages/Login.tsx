@@ -395,25 +395,55 @@ export default function Login() {
             key="success"
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="relative z-10 flex flex-col items-center text-center"
+            className="relative z-10 flex flex-col items-center text-center w-full max-w-xl px-6"
           >
+            {/* Logos: Karnataka Police Emblem & PRAHARI Logo */}
+            <div className="flex items-center justify-center gap-6 mb-6">
+              <motion.img
+                initial={{ scale: 0, rotate: -30 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: "spring", stiffness: 260, damping: 18 }}
+                src="/image_9a5181.png"
+                alt="Karnataka Police Emblem"
+                className="w-16 h-16 object-contain"
+                style={{ filter: "drop-shadow(0 0 20px rgba(201,162,39,0.4))" }}
+              />
+              <motion.img
+                initial={{ scale: 0, rotate: 30 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: "spring", stiffness: 260, damping: 18, delay: 0.1 }}
+                src="/image_9a4dc1.png"
+                alt="PRAHARI AI Logo"
+                className="w-16 h-16 object-contain"
+                style={{ filter: "drop-shadow(0 0 20px rgba(201,162,39,0.5))" }}
+              />
+            </div>
+
+            <h2 className="text-3xl font-bold text-emerald-400 mb-1 tracking-wider">ACCESS GRANTED</h2>
+            <h3 className="text-lg font-bold text-white mb-4 tracking-widest">PRAHARI AI</h3>
+
+            {/* Abbreviation for PRAHARI */}
             <motion.div
-              initial={{ scale: 0, rotate: -180 }}
-              animate={{ scale: 1, rotate: 0 }}
-              transition={{ type: "spring", stiffness: 260, damping: 18, delay: 0.1 }}
-              className="w-20 h-20 rounded-full flex items-center justify-center mb-6"
-              style={{
-                background: "rgba(46,158,108,0.15)",
-                border: "1px solid rgba(46,158,108,0.4)",
-                boxShadow: "0 0 40px rgba(46,158,108,0.25)",
-              }}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="flex flex-wrap justify-center gap-x-2 text-xs sm:text-sm text-white/50 font-medium tracking-wide mb-8 p-3 rounded-2xl bg-white/5 border border-white/10"
             >
-              <ShieldCheck className="w-10 h-10" style={{ color: "#2E9E6C" }} />
+              <span><strong className="text-amber-400 font-bold">P</strong>redictive</span> •{" "}
+              <span><strong className="text-amber-400 font-bold">R</strong>isk</span> •{" "}
+              <span><strong className="text-amber-400 font-bold">A</strong>nalysis &</span> •{" "}
+              <span><strong className="text-amber-400 font-bold">H</strong>otspot</span> •{" "}
+              <span><strong className="text-amber-400 font-bold">A</strong>lert</span> •{" "}
+              <span><strong className="text-amber-400 font-bold">R</strong>outing</span> •{" "}
+              <span><strong className="text-amber-400 font-bold">I</strong>ntelligence</span>
             </motion.div>
-            <h2 className="text-2xl font-bold text-white mb-2">Access Granted</h2>
-            <p className="font-mono text-sm uppercase tracking-wider" style={{ color: "rgba(255,255,255,0.4)" }}>
-              Initializing Command Center…
-            </p>
+
+            {/* Deployed On Zoho Catalyst & Service Name */}
+            <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-black/60 border border-amber-500/30 text-xs text-slate-300">
+              <img src="/catalyst.svg" alt="Catalyst" className="w-4 h-4 inline" />
+              <img src="/zoho-logo-darkbg.svg" alt="Zoho" className="h-3 inline opacity-90" />
+              <span className="font-semibold text-amber-300">Deployed on Zoho Catalyst (Quick ML & AppSail)</span>
+            </div>
           </motion.div>
         )}
 

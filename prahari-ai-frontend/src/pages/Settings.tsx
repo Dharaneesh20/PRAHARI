@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bell, Check, Copy, Globe, Lock, LogOut, Settings as SettingsIcon, Shield, Trash2, User, X } from "lucide-react";
+import { Bell, Check, Copy, Cpu, Globe, Lock, LogOut, Settings as SettingsIcon, Shield, Trash2, User, X } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTheme } from "../components/theme-provider";
 import GlassCard, { glassPanelStyle } from "../components/GlassCard";
@@ -9,11 +9,12 @@ import type { AppPreferences, AuditEntry, NotificationItem, NotificationPreferen
 import { useAppContext } from "../context/AppContext";
 import { mockNotifications } from "../data/mockData";
 
-type Section = "profile" | "preferences" | "notifications" | "security" | "audit" | "language";
+type Section = "profile" | "preferences" | "providers" | "notifications" | "security" | "audit" | "language";
 
 const sectionConfig: { id: Section; labelKey: string; icon: typeof User }[] = [
   { id: "profile", labelKey: "profile", icon: User },
   { id: "preferences", labelKey: "preferences", icon: SettingsIcon },
+  { id: "providers", labelKey: "AI Providers", icon: Cpu },
   { id: "notifications", labelKey: "notifications", icon: Bell },
   { id: "security", labelKey: "security", icon: Shield },
   { id: "audit", labelKey: "audit", icon: Lock },
@@ -191,7 +192,7 @@ export default function Settings() {
               {active && <motion.div layoutId="settings-active" className="absolute inset-0 rounded-xl" transition={{ type: "spring", stiffness: 380, damping: 28 }} style={{ background: "rgba(201,162,39,0.12)", border: "1px solid rgba(201,162,39,0.3)" }} />}
               <button onClick={() => setSection(item.id)} className="relative z-10 flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap" style={{ color: active ? "#C9A227" : "rgba(255,255,255,0.5)" }}>
                 <Icon className="w-4 h-4 shrink-0" />
-                {t(item.labelKey)}
+                {item.id === "providers" ? "AI Providers" : t(item.labelKey)}
               </button>
             </div>
           );
@@ -333,6 +334,62 @@ export default function Settings() {
                   ))}</tbody>
                 </table>
               </div>
+            </motion.div>
+          )}
+
+          {section === "providers" && (
+            <motion.div key="providers" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex flex-col gap-5 max-w-xl">
+              <h2 className="text-lg font-bold text-white/90">AI Providers</h2>
+              
+              <GlassCard title="NVIDIA AI Hosted APIs">
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-white/40 uppercase font-bold tracking-wider">Status</span>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      Connected
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-xs text-white/40 uppercase font-bold tracking-wider mb-2">Purpose & Capabilities</p>
+                    <div className="flex flex-wrap gap-2">
+                      {["Speech Recognition", "Voice Synthesis", "Translation", "LLM Inference"].map(p => (
+                        <span key={p} className="px-2.5 py-1 rounded-lg text-xs font-mono bg-white/5 border border-white/10 text-amber-300">
+                          {p}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </GlassCard>
+
+              <GlassCard title={
+                <div className="flex items-center gap-2">
+                  <img src="/catalyst.svg" alt="Catalyst" className="w-5 h-5 inline" />
+                  <img src="/zoho-logo-darkbg.svg" alt="Zoho" className="h-3.5 inline opacity-90" />
+                  <span>Zoho Catalyst (Quick ML & AppSail)</span>
+                </div>
+              }>
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-white/40 uppercase font-bold tracking-wider">Status</span>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      Connected
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-xs text-white/40 uppercase font-bold tracking-wider mb-2">Purpose & Microservices</p>
+                    <div className="flex flex-wrap gap-2">
+                      {["Quick ML OCR", "Vision AI", "Text Analytics", "Image Moderation", "Identity Scanner", "Barcode Scanner"].map(p => (
+                        <span key={p} className="px-2.5 py-1 rounded-lg text-xs font-mono bg-white/5 border border-white/10 text-amber-300">
+                          {p}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </GlassCard>
             </motion.div>
           )}
 
