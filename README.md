@@ -1,5 +1,16 @@
-# PRAHARI AI — Predictive Risk Analysis & Hotspot Alert Routing Intelligence
+<div align="center">
 
+<img src="prahari-ai-frontend/public/image_9a5181.png" alt="Karnataka Police Emblem" height="75" />
+&nbsp;&nbsp;&nbsp;&nbsp;
+<img src="prahari-ai-frontend/public/image_9a4dc1.png" alt="PRAHARI AI Logo" height="75" />
+&nbsp;&nbsp;&nbsp;&nbsp;
+<img src="prahari-ai-frontend/public/catalyst.svg" alt="Zoho Catalyst Logo" height="75" />
+&nbsp;&nbsp;&nbsp;&nbsp;
+<img src="prahari-ai-frontend/public/zoho-logo-darkbg.svg" alt="Zoho Logo" height="40" />
+
+# PRAHARI AI
+
+### Predictive Risk Analysis & Hotspot Alert Routing Intelligence
 **Karnataka State Police — Law Enforcement Multimodal AI Platform**
 
 [![Live Demo](https://img.shields.io/badge/Live_Demo-AppSail_Hosted-0052CC.svg)](https://prahari-ai-demo.catalystappsail.com)
@@ -8,6 +19,8 @@
 [![React 19](https://img.shields.io/badge/React-19.0-61DAFB.svg)](https://react.dev)
 [![Zoho Catalyst](https://img.shields.io/badge/Zoho_Catalyst-AppSail_%26_Quick_ML-CBA227.svg)](https://catalyst.zoho.com)
 [![NVIDIA AI](https://img.shields.io/badge/NVIDIA_AI-Hosted_APIs-76B900.svg)](https://build.nvidia.com)
+
+</div>
 
 ---
 
@@ -148,7 +161,34 @@ For complete OAuth token generation and Catalyst project configuration details, 
 
 ## Organizational Credits & Acknowledgements
 
-We acknowledge and credit the following organizations whose services, emblems, and APIs power the PRAHARI AI application:
+We acknowledge and credit the following organizations whose services, emblems, and logos power the PRAHARI AI application:
+
+<br />
+
+<div align="center">
+  <table>
+    <tr>
+      <td align="center" width="220">
+        <img src="prahari-ai-frontend/public/image_9a5181.png" width="70" alt="Karnataka Police Emblem" /><br /><br />
+        <b>Karnataka State Police</b>
+      </td>
+      <td align="center" width="220">
+        <img src="prahari-ai-frontend/public/image_9a4dc1.png" width="70" alt="PRAHARI AI Logo" /><br /><br />
+        <b>PRAHARI AI Project</b>
+      </td>
+      <td align="center" width="220">
+        <img src="prahari-ai-frontend/public/catalyst.svg" width="70" alt="Zoho Catalyst Logo" /><br /><br />
+        <b>Zoho Catalyst Cloud</b>
+      </td>
+      <td align="center" width="220">
+        <img src="prahari-ai-frontend/public/zoho-logo-darkbg.svg" width="110" alt="Zoho Logo" /><br /><br />
+        <b>Zoho Corporation</b>
+      </td>
+    </tr>
+  </table>
+</div>
+
+<br />
 
 - **Karnataka State Police**: For domain context, organizational structure, operational guidelines, and police station data modeling.
 - **Zoho Catalyst**: For cloud infrastructure, application container hosting via **AppSail**, and machine learning microservices via **Quick ML**.
