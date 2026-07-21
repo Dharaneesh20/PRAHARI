@@ -4,10 +4,11 @@ Provides pre-trained NLP models for Audio-to-Text (STT), Text-to-Audio (TTS), an
 """
 import logging
 from typing import Dict, Any
-from app.services.catalyst.client import post_catalyst_api
+from app.services.catalyst.client import post_catalyst_api, post_quickml_api
 from app.services.catalyst.auth import is_catalyst_configured
+from app.services.catalyst.voice import transcribe_audio_zia, synthesize_speech_zia
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("zoho.nlp")
 
 
 async def transcribe_audio_catalyst(
@@ -19,28 +20,7 @@ async def transcribe_audio_catalyst(
     """
     Transcribes audio speech recording using Zoho Catalyst QuickML Audio-to-Text model.
     """
-    if not is_catalyst_configured():
-        logger.info("Catalyst credentials unconfigured. Returning mock QuickML STT extract.")
-        return {
-            "status": "unconfigured",
-            "message": "Zoho Catalyst QuickML credentials not set.",
-            "text": "Commercial Street police station incident report audio log transcribed successfully.",
-            "language": language,
-            "provider": "Powered by Zoho Catalyst QuickML",
-        }
-
-    files = {"audio": (filename, audio_bytes, content_type)}
-    data = {"language": language, "model_type": "AUDIO_TO_TEXT"}
-
-    res = await post_catalyst_api("ml/stt", files=files, data=data)
-    if "error" in res or res.get("status") == "unconfigured":
-        return res
-
-    return {
-        "status": "success",
-        "text": res.get("data", {}).get("text", "") or res.get("text", ""),
-        "provider": "Powered by Zoho Catalyst QuickML",
-    }
+    return await transcribe_audio_zia(audio_bytes, filename=filename, content_type=content_type, language=language)
 
 
 async def synthesize_speech_catalyst(
@@ -50,17 +30,9 @@ async def synthesize_speech_catalyst(
     """
     Synthesizes spoken audio from input text using Zoho Catalyst QuickML Text-to-Audio model.
     """
-    if not is_catalyst_configured():
-        logger.info("Catalyst credentials unconfigured. Returning mock QuickML TTS response.")
-        return {
-            "status": "unconfigured",
-            "message": "Zoho Catalyst QuickML credentials not set.",
-            "text": text,
-            "provider": "Powered by Zoho Catalyst QuickML",
-        }
-
-    payload = {"text": text, "language": language, "model_type": "TEXT_TO_AUDIO"}
-    res = await post_catalyst_api("ml/tts", json=payload)
+    audio_bytes, res = await synthesize_speech_zia(text, language=language)
+    if audio_bytes:
+        return {"status": "success", "bytes": len(audio_bytes), "provider": "Powered by Zoho Catalyst QuickML"}
     return res
 
 
@@ -70,25 +42,35 @@ async def translate_text_catalyst(
     target_lang: str = "kn-IN",
 ) -> Dict[str, Any]:
     """
-    Translates text using Zoho Catalyst QuickML Text Translation model.
+    Translates text using Zoho Catalyst QuickML Zia Text Translation endpoint:
+    https://api.catalyst.zoho.in/quickml/api/v1/models/zia/translate
     """
     if not is_catalyst_configured():
-        logger.info("Catalyst credentials unconfigured. Returning mock QuickML Translation response.")
         return {
-            "status": "unconfigured",
-            "message": "Zoho Catalyst QuickML credentials not set.",
-            "source_text": text,
-            "translated_text": f"[Zoho Catalyst QuickML Translation] {text}",
-            "source_lang": source_lang,
-            "target_lang": target_lang,
-            "provider": "Powered by Zoho Catalyst QuickML",
+            "status": "error",
+            "error_code": 401,
+            "message": "Zoho Catalyst QuickML credentials are not configured.",
         }
+
+    src = source_lang.split("-")[0].lower() if source_lang else "en"
+    tgt = target_lang.split("-")[0].lower() if target_lang else "kn"
 
     payload = {
         "text": text,
-        "source_language": source_lang,
-        "target_language": target_lang,
-        "model_type": "TEXT_TRANSLATION",
+        "src_lang": src,
+        "tgt_lang": tgt,
     }
-    res = await post_catalyst_api("ml/translate", json=payload)
+    endpoint = "quickml/api/v1/models/zia/translate"
+    res = await post_quickml_api(endpoint, json_data=payload)
+
+    if "translated_text" in res:
+        return {
+            "status": "success",
+            "translated_text": res["translated_text"],
+            "original_text": res.get("original_text", text),
+            "src_lang": src,
+            "tgt_lang": tgt,
+            "provider": "Powered by Zoho Catalyst QuickML (Zia NLP)",
+            "processing_time_ms": res.get("processing_time_ms", 0),
+        }
     return res

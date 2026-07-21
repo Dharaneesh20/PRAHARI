@@ -310,6 +310,54 @@ export const ml = {
   forecast: (district: string, crime_group: string) =>
     apiFetch<unknown>(`/api/v1/crime/forecast?district=${encodeURIComponent(district)}&crime_group=${encodeURIComponent(crime_group)}`),
 
+  voice: {
+    speechToText: async (audioBlob: Blob, language = "kn-IN") => {
+      const formData = new FormData();
+      formData.append("file", audioBlob, "speech.wav");
+      formData.append("language", language);
+      const token = getToken();
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch(`${BASE_URL}/api/voice/stt`, {
+        method: "POST",
+        headers,
+        body: formData,
+      });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.detail || errJson.message || `Zia STT failed (HTTP ${res.status})`);
+      }
+      return res.json() as Promise<{ text: string; transcript: string; language: string; provider: string; status?: string }>;
+    },
+
+    textToSpeech: async (text: string, language = "kn-IN", voice?: string, pitch = "medium", speed = 1.0, emotion = "neutral") => {
+      const token = getToken();
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch(`${BASE_URL}/api/voice/tts`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ text, language, voice, pitch, speed, emotion }),
+      });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.detail || errJson.message || `Zia TTS failed (HTTP ${res.status})`);
+      }
+      const blob = await res.blob();
+      return URL.createObjectURL(blob);
+    },
+
+    getOptions: async () => {
+      return apiFetch<{
+        supported_languages: Array<{ code: string; name: string }>;
+        voices: Record<string, Array<{ id: string; name: string; gender: string }>>;
+        options: { pitch: string[]; speed: number[]; emotion: string[] };
+      }>("/api/voice/options");
+    },
+  },
+
   ai: {
     speechToText: async (audioBlob: Blob, language = "kn-IN") => {
       const formData = new FormData();
@@ -319,29 +367,31 @@ export const ml = {
       const headers: Record<string, string> = {};
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
-      const res = await fetch(`${BASE_URL}/api/v1/ai/speech-to-text`, {
+      const res = await fetch(`${BASE_URL}/api/voice/stt`, {
         method: "POST",
         headers,
         body: formData,
       });
-      if (!res.ok) throw new Error("STT failed");
-      return res.json() as Promise<{ text: string; detected_language: string; provider: string; status?: string }>;
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.detail || errJson.message || `Zia STT failed (HTTP ${res.status})`);
+      }
+      return res.json() as Promise<{ text: string; transcript: string; language: string; provider: string; status?: string }>;
     },
 
-    textToSpeech: async (text: string, language = "kn-IN") => {
+    textToSpeech: async (text: string, language = "kn-IN", voice?: string) => {
       const token = getToken();
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
-      const res = await fetch(`${BASE_URL}/api/v1/ai/text-to-speech`, {
+      const res = await fetch(`${BASE_URL}/api/voice/tts`, {
         method: "POST",
         headers,
-        body: JSON.stringify({ text, language }),
+        body: JSON.stringify({ text, language, voice }),
       });
-      if (!res.ok) throw new Error("TTS failed");
-      const contentType = res.headers.get("content-type");
-      if (contentType && contentType.includes("application/json")) {
-        return null;
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.detail || errJson.message || `Zia TTS failed (HTTP ${res.status})`);
       }
       const blob = await res.blob();
       return URL.createObjectURL(blob);

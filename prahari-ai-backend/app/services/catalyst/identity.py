@@ -32,7 +32,7 @@ async def scan_identity_doc(
         }
 
     files = {
-        "code": (filename, image_bytes, content_type),
+        "image": (filename, image_bytes, content_type),
     }
     data = {
         "doc_type": doc_type,

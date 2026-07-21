@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     CATALYST_REFRESH_TOKEN: str = ""
     CATALYST_DC: str = "IN"
 
+    ZOHO_CLIENT_ID: str = ""
+    ZOHO_CLIENT_SECRET: str = ""
+    ZOHO_REFRESH_TOKEN: str = ""
+    ZOHO_ORG_ID: str = ""
+
     # NVIDIA AI Hosted APIs
     NVIDIA_API_KEY: str = ""
 
@@ -36,6 +41,9 @@ class Settings(BaseSettings):
 
     # LLM
     GROQ_API_KEY: str = ""
+
+    # OCR.space Fallback Key
+    OCR_SPACE_API_KEY: str = ""
 
     # CORS
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173,http://localhost:4173,http://127.0.0.1:3000,http://127.0.0.1:5173,http://127.0.0.1:4173"

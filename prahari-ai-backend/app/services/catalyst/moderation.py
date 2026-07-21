@@ -28,7 +28,7 @@ async def moderate_image(
         }
 
     files = {
-        "code": (filename, image_bytes, content_type),
+        "image": (filename, image_bytes, content_type),
     }
 
     res = await post_catalyst_api("ml/image-moderation", files=files)

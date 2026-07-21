@@ -381,7 +381,7 @@ export default function Settings() {
                   <div>
                     <p className="text-xs text-white/40 uppercase font-bold tracking-wider mb-2">Purpose & Microservices</p>
                     <div className="flex flex-wrap gap-2">
-                      {["Quick ML OCR", "Vision AI", "Text Analytics", "Image Moderation", "Identity Scanner", "Barcode Scanner"].map(p => (
+                      {["Zia Voice (QuickML TTS & STT)", "Quick ML OCR", "Vision AI", "Text Analytics", "Image Moderation", "Identity Scanner", "Barcode Scanner"].map(p => (
                         <span key={p} className="px-2.5 py-1 rounded-lg text-xs font-mono bg-white/5 border border-white/10 text-amber-300">
                           {p}
                         </span>

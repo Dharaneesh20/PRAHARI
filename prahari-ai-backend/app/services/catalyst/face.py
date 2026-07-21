@@ -27,7 +27,7 @@ async def analyze_face(
         }
 
     files = {
-        "code": (filename, image_bytes, content_type),
+        "image": (filename, image_bytes, content_type),
     }
 
     res = await post_catalyst_api("ml/face-analytics", files=files)

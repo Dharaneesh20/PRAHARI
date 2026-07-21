@@ -18,6 +18,7 @@ key nor network access to api.groq.com — this script is meant to be run
 on your own machine).
 """
 
+import logging
 import os
 import re
 import json
@@ -28,6 +29,8 @@ import base64
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 load_dotenv()
+
+logger = logging.getLogger("prahari.nl2sql")
 
 try:
     from llm_client import complete_chat

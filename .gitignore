@@ -39,3 +39,18 @@ prahari-ai-ml/**/*.duckdb.wal
 
 # Generated datasets
 prahari-ai-ml/**/*.parquet
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Docker images & archives
+*.tar
+*.tar.gz
+*.tgz
+*.iso
+*.bin
+*.img
+*.docker
+

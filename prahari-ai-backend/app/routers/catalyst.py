@@ -250,7 +250,10 @@ class CatalystTTSRequest(BaseModel):
 @router.post("/text-to-speech", summary="Zoho Catalyst QuickML — Text-to-Speech")
 async def catalyst_tts(req: CatalystTTSRequest):
     try:
-        return await synthesize_speech_catalyst(req.text, req.language)
+        audio_bytes, meta = await synthesize_speech_zia(req.text, req.language)
+        if audio_bytes:
+            return Response(content=audio_bytes, media_type="audio/wav")
+        raise HTTPException(status_code=400, detail=meta.get("message", "TTS failed"))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Catalyst QuickML TTS failed: {str(e)}")
 

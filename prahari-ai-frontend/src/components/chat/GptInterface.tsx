@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Paperclip, Database,
-  ArrowUp, Mic, Camera, Check, Loader2,
+  ArrowUp, Mic, Camera, Check, Loader2, Copy,
   Plus, MessageSquare, Brain, ChevronDown, ChevronRight, Download,
   Volume2, VolumeX, Menu, X, ScanLine, ScanText, ImageIcon, Zap,
   Search, Pin, Star, Tag, Trash2, Edit3,
@@ -431,6 +431,43 @@ export default function GptInterface() {
     } catch (err) { console.error("Delete failed", err); }
   };
 
+  const encodeWavFromAudioBuffer = (audioBuffer: AudioBuffer): Blob => {
+    const numChannels = 1;
+    const sampleRate = audioBuffer.sampleRate;
+    const samples = audioBuffer.getChannelData(0);
+    const dataLength = samples.length * 2;
+    const buffer = new ArrayBuffer(44 + dataLength);
+    const view = new DataView(buffer);
+
+    const writeString = (offset: number, str: string) => {
+      for (let i = 0; i < str.length; i++) {
+        view.setUint8(offset + i, str.charCodeAt(i));
+      }
+    };
+
+    writeString(0, 'RIFF');
+    view.setUint32(4, 36 + dataLength, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * numChannels * 2, true);
+    view.setUint16(32, numChannels * 2, true);
+    view.setUint16(34, 16, true);
+    writeString(36, 'data');
+    view.setUint32(40, dataLength, true);
+
+    let offset = 44;
+    for (let i = 0; i < samples.length; i++, offset += 2) {
+      const s = Math.max(-1, Math.min(1, samples[i]));
+      view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+    }
+
+    return new Blob([buffer], { type: 'audio/wav' });
+  };
+
   const startVoiceRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -439,43 +476,91 @@ export default function GptInterface() {
       audioChunksRef.current = [];
       mediaRecorder.ondataavailable = (event) => { if (event.data.size > 0) audioChunksRef.current.push(event.data); };
       mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/wav" });
+        setIsListening(true);
         try {
-          setIsListening(true);
-          const sttRes = await ml.ai.speechToText(audioBlob, selectedLang);
-          if (sttRes && sttRes.text) {
-            setMessage(sttRes.text);
-            handleSend(undefined, sttRes.text);
-          } else {
-            alert("Speech-to-Text unavailable at the moment. Kindly use text input.");
+          const rawBlob = new Blob(audioChunksRef.current, { type: mediaRecorder.mimeType || "audio/webm" });
+          let wavBlob = rawBlob;
+          try {
+            const arrayBuffer = await rawBlob.arrayBuffer();
+            const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+            wavBlob = encodeWavFromAudioBuffer(audioBuffer);
+            await audioCtx.close();
+          } catch (convErr) {
+            console.warn("AudioContext WAV conversion fallback to rawBlob", convErr);
           }
-        } catch (e) {
-          console.error("Zia STT processing error", e);
-          alert("Speech-to-Text unavailable at the moment. Kindly use text input.");
-        } finally { setIsListening(false); setIsRecording(false); stream.getTracks().forEach(t => t.stop()); }
+
+          const sttRes = await ml.voice.speechToText(wavBlob, selectedLang);
+          if (sttRes && (sttRes.text || sttRes.transcript)) {
+            const transcript = sttRes.text || sttRes.transcript;
+            setMessage(transcript);
+            handleSend(undefined, transcript);
+          } else {
+            alert("Zia Speech-to-Text could not transcribe clear audio. Please try again.");
+          }
+        } catch (e: any) {
+          console.error("Zia STT Error:", e);
+          alert(e?.message || "Zia Speech-to-Text service error. Please check backend configuration.");
+        } finally {
+          setIsListening(false);
+          setIsRecording(false);
+          stream.getTracks().forEach((t) => t.stop());
+        }
       };
       mediaRecorder.start();
       setIsRecording(true);
       setShowMicConsent(false);
-    } catch (err) { console.error("Mic access failed", err); alert("Microphone access denied or unsupported browser."); }
+    } catch (err) {
+      console.error("Mic access failed", err);
+      alert("Microphone access denied or unsupported browser.");
+    }
   };
 
   const stopVoiceRecording = () => { if (mediaRecorderRef.current && isRecording) mediaRecorderRef.current.stop(); };
 
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+
+  const handleCopyText = (idx: number, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedIdx(idx);
+    setTimeout(() => setCopiedIdx(null), 2000);
+  };
+
+  const handleDownloadResponse = (idx: number, text: string) => {
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Prahari_Intelligence_Brief_${idx + 1}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handlePlayTTS = async (idx: number, text: string) => {
-    if (isPlayingAudio === idx) { setIsPlayingAudio(null); if ("speechSynthesis" in window) window.speechSynthesis.cancel(); return; }
+    if (isPlayingAudio === idx) {
+      setIsPlayingAudio(null);
+      return;
+    }
     setIsPlayingAudio(idx);
     try {
-      const audioUrl = await ml.ai.textToSpeech(text, selectedLang);
-      if (audioUrl) { const audio = new Audio(audioUrl); audio.onended = () => setIsPlayingAudio(null); audio.play(); }
-      else if ("speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text.replace(/[*#_`|]/g, "").slice(0, 300));
-        utterance.lang = selectedLang;
-        utterance.onend = () => setIsPlayingAudio(null);
-        window.speechSynthesis.speak(utterance);
+      const audioUrl = await ml.voice.textToSpeech(text, selectedLang);
+      if (audioUrl) {
+        const audio = new Audio(audioUrl);
+        audio.onended = () => setIsPlayingAudio(null);
+        audio.onerror = () => {
+          setIsPlayingAudio(null);
+          alert("Zia Voice audio playback failed.");
+        };
+        await audio.play();
+      } else {
+        alert("Zia Voice TTS service failed to synthesize audio.");
+        setIsPlayingAudio(null);
       }
-    } catch (e) { console.error("TTS playback failed", e); setIsPlayingAudio(null); }
+    } catch (e: any) {
+      console.error("Zia TTS playback error:", e);
+      alert(e?.message || "Zia Voice TTS service error. Please check backend credentials.");
+      setIsPlayingAudio(null);
+    }
   };
 
   const handleSend = async (e?: React.FormEvent, presetMessage?: string) => {
@@ -724,8 +809,15 @@ export default function GptInterface() {
                     </div>
                   </div>
                   <div>
-                    <span className="font-bold text-sm text-slate-900 dark:text-white">{isListening ? "Processing STT..." : "Listening..."}</span>
-                    <div className="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5">Powered by NVIDIA AI</div>
+                    <span className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                      {isListening ? "Processing Zia STT..." : "Listening (Zia STT)..."}
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-500 font-semibold border border-amber-500/30">Zia Voice</span>
+                    </span>
+                    <div className="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5 flex items-center gap-1.5">
+                      <img src="/catalyst.svg" alt="Catalyst" className="w-3.5 h-3.5 inline" />
+                      <img src="/zoho-logo-darkbg.svg" alt="Zoho" className="w-3.5 h-3.5 inline" />
+                      <span>Powered by Zoho Catalyst QuickML (Zia NLP)</span>
+                    </div>
                   </div>
                 </div>
                 <button type="button" onClick={stopVoiceRecording} className="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs shadow-md transition flex items-center gap-1.5 shrink-0">
@@ -784,10 +876,30 @@ export default function GptInterface() {
                               <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
                             </div>
                             <div className="mt-3 pt-2 border-t border-slate-200 dark:border-white/10 flex items-center justify-between flex-wrap gap-2">
-                              <button type="button" onClick={() => handlePlayTTS(idx, msg.text)} title="Read Aloud" className="text-xs font-semibold inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-300 dark:border-white/10 bg-slate-200/60 dark:bg-white/5 hover:bg-slate-300/60 dark:hover:bg-white/10 text-slate-700 dark:text-white/70 hover:text-slate-900 dark:hover:text-white transition">
-                                {isPlayingAudio === idx ? <><VolumeX className="w-3.5 h-3.5 text-amber-500" /><span className="text-[11px] text-amber-500">Stop</span></> : <><Volume2 className="w-3.5 h-3.5 text-amber-500" /><span className="text-[11px]">Read Aloud</span></>}
-                              </button>
-                              <div className="flex items-center gap-1 text-[10px] text-slate-500 dark:text-white/40 font-mono"><span>Powered by NVIDIA AI</span></div>
+                              <div className="flex items-center gap-2">
+                                {/* Zia Voice TTS Speaker Button */}
+                                <button type="button" onClick={() => handlePlayTTS(idx, msg.text)} title="Read Aloud with Zia Voice" className="text-xs font-semibold inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 transition">
+                                  {isPlayingAudio === idx ? <><VolumeX className="w-3.5 h-3.5 text-amber-500" /><span className="text-[11px]">Stop</span></> : <><Volume2 className="w-3.5 h-3.5 text-amber-500" /><span className="text-[11px]">Zia Voice</span></>}
+                                </button>
+
+                                {/* Copy Button */}
+                                <button type="button" onClick={() => handleCopyText(idx, msg.text)} title="Copy Response" className="text-xs font-semibold inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-300 dark:border-white/10 bg-slate-200/60 dark:bg-white/5 hover:bg-slate-300/60 dark:hover:bg-white/10 text-slate-700 dark:text-white/70 hover:text-slate-900 dark:hover:text-white transition">
+                                  {copiedIdx === idx ? <><Check className="w-3.5 h-3.5 text-green-500" /><span className="text-[11px] text-green-500">Copied</span></> : <><Copy className="w-3.5 h-3.5 text-slate-400" /><span className="text-[11px]">Copy</span></>}
+                                </button>
+
+                                {/* Download Response Button */}
+                                <button type="button" onClick={() => handleDownloadResponse(idx, msg.text)} title="Download Response" className="text-xs font-semibold inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-300 dark:border-white/10 bg-slate-200/60 dark:bg-white/5 hover:bg-slate-300/60 dark:hover:bg-white/10 text-slate-700 dark:text-white/70 hover:text-slate-900 dark:hover:text-white transition">
+                                  <Download className="w-3.5 h-3.5 text-slate-400" />
+                                  <span className="text-[11px]">Download</span>
+                                </button>
+                              </div>
+
+                              {/* Official Zoho Catalyst Branding */}
+                              <div className="flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-white/50 font-medium">
+                                <img src="/catalyst.svg" alt="Catalyst" className="w-3.5 h-3.5" />
+                                <img src="/zoho-logo-darkbg.svg" alt="Zoho" className="w-3.5 h-3.5" />
+                                <span>Powered by Catalyst (Zia Voice)</span>
+                              </div>
                             </div>
                           </>
                         ) : (

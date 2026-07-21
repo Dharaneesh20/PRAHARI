@@ -67,7 +67,7 @@ app.add_middleware(
 app.add_middleware(AuditMiddleware)
 
 # ── Routers ───────────────────────────────────────────────────────────────────
-from app.routers import ai, catalyst
+from app.routers import ai, catalyst, voice
 app.include_router(auth.router,             prefix="/auth",          tags=["Authentication"])
 app.include_router(kpi.router,              prefix="/kpi",           tags=["KPI Dashboard"], dependencies=[Depends(require_level_1)])
 app.include_router(incidents.router,        prefix="/incidents",     tags=["Incidents"])
@@ -78,6 +78,8 @@ app.include_router(analytics.router,        prefix="/analytics",     tags=["Anal
 app.include_router(ml.router,               prefix="/api/v1",        tags=["ML / Analytics Engine"], dependencies=[Depends(require_level_1)])
 app.include_router(ai.router,               prefix="/api/v1",        tags=["NVIDIA AI Services"])
 app.include_router(catalyst.router,         prefix="/api/v1",        tags=["Zoho Catalyst Services"])
+app.include_router(voice.router,            prefix="/api/voice",     tags=["Zoho Catalyst Zia Voice AI"])
+app.include_router(voice.router,            prefix="/api/v1/voice",  tags=["Zoho Catalyst Zia Voice AI"])
 app.include_router(admin.router,            prefix="/admin",         tags=["Super Admin"])
 app.include_router(ml_admin.router,         prefix="/admin",         tags=["Super Admin"])
 

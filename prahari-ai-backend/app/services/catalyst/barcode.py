@@ -26,7 +26,7 @@ async def scan_barcode(
         }
 
     files = {
-        "code": (filename, image_bytes, content_type),
+        "image": (filename, image_bytes, content_type),
     }
 
     res = await post_catalyst_api("ml/barcode", files=files)

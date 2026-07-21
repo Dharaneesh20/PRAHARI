@@ -23,3 +23,7 @@ requests
 
 # ── PDF report generation ───────────────────────────
 reportlab
+
+# ── Web API Service & Async Server ──────────────────
+fastapi
+uvicorn
