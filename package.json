@@ -1,0 +1,10 @@
+{
+  "name": "prahari-ai",
+  "private": true,
+  "version": "1.0.0",
+  "description": "PRAHARI AI - Proactive Response & Analytics Hub for Actionable Records & Investigation",
+  "scripts": {
+    "install": "cd prahari-ai-frontend && npm install",
+    "build": "cd prahari-ai-frontend && npm install && npm run build && mkdir -p ../dist && cp -r dist/* ../dist/"
+  }
+}
