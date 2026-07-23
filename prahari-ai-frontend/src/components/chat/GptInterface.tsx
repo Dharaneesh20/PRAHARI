@@ -248,10 +248,10 @@ function OcrScanPanel({
           <img src="/zoho-logo-web.svg" alt="Zoho" className="h-3.5 dark:hidden opacity-90 inline shrink-0" />
           <img src="/zoho-logo-darkbg.svg" alt="Zoho" className="h-3.5 hidden dark:block opacity-90 inline shrink-0" />
           <span className="text-sm font-bold text-slate-900 dark:text-white">
-            Zoho Catalyst Quick ML OCR Engine
+            Zia OCR Engine
           </span>
           <span className="hidden sm:inline-flex items-center gap-1 text-[10px] px-2.5 py-0.5 rounded-full font-mono font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30">
-            <span>Powered by Zoho Catalyst Quick ML</span>
+            <span>Powered by Zia OCR Engine</span>
           </span>
         </div>
         <button onClick={onClose} className="p-1 rounded-lg text-slate-500 dark:text-white/50 hover:text-slate-900 dark:hover:text-white transition active:scale-90">
@@ -777,8 +777,8 @@ export default function GptInterface() {
               <img src="/catalyst.svg" alt="Catalyst" className="w-4 h-4 inline" />
               <img src="/zoho-logo-web.svg" alt="Zoho" className="h-3.5 dark:hidden opacity-90" />
               <img src="/zoho-logo-darkbg.svg" alt="Zoho" className="h-3.5 hidden dark:block opacity-90" />
-              <span className="text-xs font-bold text-slate-800 dark:text-amber-400">Zoho Catalyst</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded font-mono bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold border border-amber-500/20">Quick ML</span>
+              <span className="text-xs font-bold text-slate-800 dark:text-amber-400">Catalyst & Zia Services</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded font-mono bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold border border-amber-500/20">Zia Slate</span>
             </div>
             <span className="text-slate-300 dark:text-white/20">|</span>
             <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">NVIDIA AI</span>
@@ -816,7 +816,7 @@ export default function GptInterface() {
                     <div className="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5 flex items-center gap-1.5">
                       <img src="/catalyst.svg" alt="Catalyst" className="w-3.5 h-3.5 inline" />
                       <img src="/zoho-logo-darkbg.svg" alt="Zoho" className="w-3.5 h-3.5 inline" />
-                      <span>Powered by Zoho Catalyst QuickML (Zia NLP)</span>
+                      <span>Powered by Catalyst Quick ML & Zia-Trained NLP Models</span>
                     </div>
                   </div>
                 </div>
@@ -898,7 +898,7 @@ export default function GptInterface() {
                               <div className="flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-white/50 font-medium">
                                 <img src="/catalyst.svg" alt="Catalyst" className="w-3.5 h-3.5" />
                                 <img src="/zoho-logo-darkbg.svg" alt="Zoho" className="w-3.5 h-3.5" />
-                                <span>Powered by Catalyst (Zia Voice)</span>
+                                <span>Powered by Catalyst Quick ML & Zia TTS/STT</span>
                               </div>
                             </div>
                           </>
@@ -927,6 +927,7 @@ export default function GptInterface() {
               <div className="flex items-center gap-0.5">
                 <motion.button type="button" whileTap={{ scale: 0.9 }} onClick={() => setShowAttach(true)} className="p-2 rounded-xl transition-colors text-white/40 hover:text-white/85 active:bg-white/10"><Paperclip className="w-4 h-4" /></motion.button>
                 <motion.button
+                  id="tour-chat-ocr"
                   type="button"
                   whileTap={{ scale: 0.9 }}
                   onClick={() => setShowOcrPanel(v => !v)}

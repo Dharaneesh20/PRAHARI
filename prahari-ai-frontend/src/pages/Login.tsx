@@ -1,9 +1,11 @@
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, WifiOff, ShieldCheck, Shield, User, Building2, Users } from "lucide-react";
+import { Loader2, WifiOff, ShieldCheck, Shield, User, Building2, Users, HelpCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import LiquidCanvas from "../components/LiquidCanvas";
 import { auth as authApi, setToken } from "../lib/api";
+import { useAppContext } from "../context/AppContext";
+import { useTour } from "../context/TourContext";
 
 type LoginState = "idle" | "loading" | "error" | "success";
 type Role = "Investigator" | "Station Admin" | "Citizen Portal";
@@ -16,6 +18,8 @@ const ROLES: { value: Role; icon: typeof Shield; desc: string }[] = [
 
 export default function Login() {
   const navigate = useNavigate();
+  const { language, setLanguage } = useAppContext();
+  const { startTour } = useTour();
   const [status, setStatus] = useState<LoginState>("idle");
   const [badgeId, setBadgeId] = useState("");
   const [password, setPassword] = useState("");
@@ -23,6 +27,17 @@ export default function Login() {
   const [ripples, setRipples] = useState<{ id: number; x: number; y: number }[]>([]);
   const [showDemo, setShowDemo] = useState(false);
   const [shake, setShake] = useState(false);
+
+  const getRoleLabel = (r: Role) => {
+    if (language === "kn") {
+      switch (r) {
+        case "Investigator": return "ತನಿಖಾಧಿಕಾರಿ";
+        case "Station Admin": return "ಠಾಣೆ ನಿರ್ವಾಹಕ";
+        case "Citizen Portal": return "ನಾಗರಿಕ ಪೋರ್ಟಲ್";
+      }
+    }
+    return r;
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,6 +78,43 @@ export default function Login() {
 
       {/* Full-bleed animated canvas */}
       <LiquidCanvas />
+
+      {/* Top-Right Controls: Language Selector and Tour */}
+      <div className="absolute top-6 right-6 z-50 flex items-center gap-3">
+        {/* Language Selector */}
+        <div className="flex bg-white/5 border border-white/10 rounded-xl p-0.5 backdrop-blur-md shadow-lg">
+          <button
+            onClick={() => setLanguage("en")}
+            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold tracking-wider transition-all ${
+              language === "en"
+                ? "bg-[#C9A227] text-black shadow-md"
+                : "text-white/40 hover:text-white"
+            }`}
+          >
+            ENG
+          </button>
+          <button
+            onClick={() => setLanguage("kn")}
+            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold tracking-wider transition-all ${
+              language === "kn"
+                ? "bg-[#C9A227] text-black shadow-md"
+                : "text-white/40 hover:text-white"
+            }`}
+          >
+            ಕನ್
+          </button>
+        </div>
+
+        {/* Start Tour Trigger */}
+        <button
+          onClick={startTour}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all bg-white/5 border border-white/10 text-white/70 hover:text-white hover:bg-white/10 backdrop-blur-md shadow-lg"
+          title={language === "kn" ? "ಸಿಸ್ಟಮ್ ಪ್ರವಾಸವನ್ನು ಪ್ರಾರಂಭಿಸಿ" : "Start System Tour"}
+        >
+          <HelpCircle className="w-3.5 h-3.5 text-[#C9A227]" />
+          <span>{language === "kn" ? "ಪ್ರವಾಸ" : "Tour"}</span>
+        </button>
+      </div>
 
       <AnimatePresence mode="wait">
 
@@ -110,7 +162,7 @@ export default function Login() {
               <div className="text-center">
                 <h1 className="text-2xl font-bold text-white tracking-wider">PRAHARI AI</h1>
                 <p className="text-[11px] text-white/40 font-bold uppercase tracking-widest mt-0.5">
-                  Tactical Intelligence Platform
+                  {language === "kn" ? "ಯುದ್ಧತಂತ್ರದ ಬುದ್ಧಿಮತ್ತೆ ವೇದಿಕೆ" : "Tactical Intelligence Platform"}
                 </p>
               </div>
 
@@ -119,7 +171,7 @@ export default function Login() {
                 <img src="/catalyst.svg" alt="Catalyst" className="w-4 h-4 inline" />
                 <img src="/zoho-logo-darkbg.svg" alt="Zoho" className="h-3.5 inline opacity-90" />
                 <span className="text-[11px] font-mono text-amber-400 font-semibold tracking-wide">
-                  RBAC by Catalyst Authentication™
+                  RBAC by Zia OAuth™
                 </span>
               </div>
             </div>
@@ -127,7 +179,7 @@ export default function Login() {
             {/* Role selector */}
             <div className="flex flex-col gap-2">
               <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">
-                Access Role
+                {language === "kn" ? "ಪ್ರವೇಶ ಪಾತ್ರ" : "Access Role"}
               </label>
               <div
                 className="grid grid-cols-3 gap-1.5 p-1 rounded-2xl"
@@ -156,7 +208,7 @@ export default function Login() {
                     }
                   >
                     <Icon className="w-3.5 h-3.5" />
-                    <span className="leading-tight text-center text-[10px]">{value}</span>
+                    <span className="leading-tight text-center text-[10px]">{getRoleLabel(value)}</span>
                   </motion.button>
                 ))}
               </div>
@@ -167,13 +219,13 @@ export default function Login() {
               {/* Badge ID */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.4)" }}>
-                  Officer Badge ID
+                  {language === "kn" ? "ಅಧಿಕಾರಿ ಬ್ಯಾಡ್ಜ್ ಐಡಿ" : "Officer Badge ID"}
                 </label>
                 <input
                   type="text"
                   value={badgeId}
                   onChange={(e) => setBadgeId(e.target.value)}
-                  placeholder="e.g. KSP-8921"
+                  placeholder={language === "kn" ? "ಉದಾ: KSP-8921" : "e.g. KSP-8921"}
                   className="w-full px-4 py-3 rounded-xl outline-none text-sm font-medium text-white placeholder:text-white/25 transition-all"
                   style={{
                     background: "rgba(255,255,255,0.05)",
@@ -194,7 +246,7 @@ export default function Login() {
               {/* Secure Access Code */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.4)" }}>
-                  Secure Access Code
+                  {language === "kn" ? "ಸುರಕ್ಷಿತ ಪ್ರವೇಶ ಕೋಡ್" : "Secure Access Code"}
                 </label>
                 <input
                   type="password"
@@ -227,7 +279,7 @@ export default function Login() {
                       exit={{ opacity: 0, height: 0 }}
                       className="text-red-400 text-xs text-center font-bold"
                     >
-                      Access Denied: Invalid Credentials
+                      {language === "kn" ? "ಪ್ರವೇಶ ನಿರಾಕರಿಸಲಾಗಿದೆ: ಅಮಾನ್ಯ ರುಜುವಾತುಗಳು" : "Access Denied: Invalid Credentials"}
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -245,7 +297,7 @@ export default function Login() {
                   }}
                 >
                   <span className="relative z-10 flex items-center justify-center gap-2">
-                    Initiate Secure Uplink
+                    {language === "kn" ? "ಸುರಕ್ಷಿತ ಸಂಪರ್ಕವನ್ನು ಪ್ರಾರಂಭಿಸಿ" : "Initiate Secure Uplink"}
                   </span>
                   
                   {/* Button Ripple Effect */}
@@ -274,7 +326,9 @@ export default function Login() {
                 onClick={() => setShowDemo(!showDemo)}
                 className="text-[10px] uppercase font-bold text-gray-400 hover:text-white text-center tracking-widest transition"
               >
-                {showDemo ? "Hide Demo Accounts" : "Show Demo Accounts (Hackathon)"}
+                {showDemo 
+                  ? (language === "kn" ? "ಡೆಮೊ ಖಾತೆಗಳನ್ನು ಮರೆಮಾಡು" : "Hide Demo Accounts") 
+                  : (language === "kn" ? "ಡೆಮೊ ಖಾತೆಗಳನ್ನು ತೋರಿಸು (ಹ್ಯಾಕಥಾನ್)" : "Show Demo Accounts (Hackathon)")}
               </button>
               
               <AnimatePresence>
@@ -286,13 +340,13 @@ export default function Login() {
                     className="flex flex-col gap-2"
                   >
                     <button id="tour-demo-super-admin" type="button" onClick={() => handleDemoFill('KSP-IGP-9999', 'prahari@2026')} className="text-xs bg-white/5 border border-white/10 p-2 rounded text-left hover:bg-white/10 text-white transition">
-                      <strong className="text-yellow-500">Super Admin (L3)</strong><br/><span className="text-gray-400">ID: KSP-IGP-9999 | Pwd: prahari@2026</span>
+                      <strong className="text-yellow-500">{language === "kn" ? "ಸೂಪರ್ ಅಡ್ಮಿನ್ (L3)" : "Super Admin (L3)"}</strong><br/><span className="text-gray-400">ID: KSP-IGP-9999 | Pwd: prahari@2026</span>
                     </button>
                     <button type="button" onClick={() => handleDemoFill('KSP-ACP-4022', 'prahari@2026')} className="text-xs bg-white/5 border border-white/10 p-2 rounded text-left hover:bg-white/10 text-white transition">
-                      <strong className="text-blue-400">Senior Officer (L2)</strong><br/><span className="text-gray-400">ID: KSP-ACP-4022 | Pwd: prahari@2026</span>
+                      <strong className="text-blue-400">{language === "kn" ? "ಹಿರಿಯ ಅಧಿಕಾರಿ (L2)" : "Senior Officer (L2)"}</strong><br/><span className="text-gray-400">ID: KSP-ACP-4022 | Pwd: prahari@2026</span>
                     </button>
                     <button type="button" onClick={() => handleDemoFill('KSP-INS-8921', 'prahari@2026')} className="text-xs bg-white/5 border border-white/10 p-2 rounded text-left hover:bg-white/10 text-white transition">
-                      <strong className="text-green-400">Field Officer (L1)</strong><br/><span className="text-gray-400">ID: KSP-INS-8921 | Pwd: prahari@2026</span>
+                      <strong className="text-green-400">{language === "kn" ? "ಕ್ಷೇತ್ರ ಅಧಿಕಾರಿ (L1)" : "Field Officer (L1)"}</strong><br/><span className="text-gray-400">ID: KSP-INS-8921 | Pwd: prahari@2026</span>
                     </button>
                   </motion.div>
                 )}
@@ -309,7 +363,9 @@ export default function Login() {
             >
               <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-400" />
               <p className="text-[11px] text-emerald-300/90 font-medium">
-                TLS 1.3 Encrypted Session · Scoped Level-1 to Level-3 Authorization
+                {language === "kn" 
+                  ? "TLS 1.3 ಎನ್‌ಕ್ರಿಪ್ಟ್ ಮಾಡಲಾದ ಸೆಷನ್ · ವ್ಯಾಪ್ತಿಯ ಹಂತ-1 ರಿಂದ ಹಂತ-3 ದೃಢೀಕರಣ" 
+                  : "TLS 1.3 Encrypted Session · Scoped Level-1 to Level-3 Authorization"}
               </p>
             </div>
           </motion.div>
@@ -421,7 +477,9 @@ export default function Login() {
               />
             </div>
 
-            <h2 className="text-3xl font-bold text-emerald-400 mb-1 tracking-wider">ACCESS GRANTED</h2>
+            <h2 className="text-3xl font-bold text-emerald-400 mb-1 tracking-wider">
+              {language === "kn" ? "ಪ್ರವೇಶ ಅನುಮತಿಸಲಾಗಿದೆ" : "ACCESS GRANTED"}
+            </h2>
             <h3 className="text-lg font-bold text-white mb-4 tracking-widest">PRAHARI AI</h3>
 
             {/* Abbreviation for PRAHARI */}
@@ -444,7 +502,11 @@ export default function Login() {
             <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-black/60 border border-amber-500/30 text-xs text-slate-300">
               <img src="/catalyst.svg" alt="Catalyst" className="w-4 h-4 inline" />
               <img src="/zoho-logo-darkbg.svg" alt="Zoho" className="h-3 inline opacity-90" />
-              <span className="font-semibold text-amber-300">Deployed on Zoho Catalyst (Quick ML & AppSail)</span>
+              <span className="font-semibold text-amber-300">
+                {language === "kn" 
+                  ? "Deployed on Zia Slate & App Sail Compute" 
+                  : "Deployed on Zia Slate & App Sail Compute"}
+              </span>
             </div>
           </motion.div>
         )}

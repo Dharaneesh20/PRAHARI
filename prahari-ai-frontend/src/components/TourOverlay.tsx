@@ -284,7 +284,7 @@ export default function TourOverlay() {
             >
               <div className="flex items-center gap-1.5 text-[10px] text-amber-400 font-extrabold uppercase tracking-widest">
                 <img src="/catalyst.svg" alt="Catalyst" className="w-3.5 h-3.5" />
-                <span>Zoho Catalyst Engine</span>
+                <span>{currentStep.serviceName || "Zoho Catalyst Engine"}</span>
               </div>
               <p className="text-[11px] text-amber-200/80 leading-normal font-semibold">
                 {catalystText}

@@ -367,7 +367,7 @@ export default function Settings() {
                 <div className="flex items-center gap-2">
                   <img src="/catalyst.svg" alt="Catalyst" className="w-5 h-5 inline" />
                   <img src="/zoho-logo-darkbg.svg" alt="Zoho" className="h-3.5 inline opacity-90" />
-                  <span>Zoho Catalyst (Quick ML & AppSail)</span>
+                  <span>Zia & Catalyst Services (Zia Slate & AppSail)</span>
                 </div>
               }>
                 <div className="flex flex-col gap-3">
@@ -381,7 +381,7 @@ export default function Settings() {
                   <div>
                     <p className="text-xs text-white/40 uppercase font-bold tracking-wider mb-2">Purpose & Microservices</p>
                     <div className="flex flex-wrap gap-2">
-                      {["Zia Voice (QuickML TTS & STT)", "Quick ML OCR", "Vision AI", "Text Analytics", "Image Moderation", "Identity Scanner", "Barcode Scanner"].map(p => (
+                      {["Zia Voice (QuickML TTS & STT)", "Zia OCR Engine", "Vision AI", "Text Analytics", "Image Moderation", "Identity Scanner", "Barcode Scanner"].map(p => (
                         <span key={p} className="px-2.5 py-1 rounded-lg text-xs font-mono bg-white/5 border border-white/10 text-amber-300">
                           {p}
                         </span>

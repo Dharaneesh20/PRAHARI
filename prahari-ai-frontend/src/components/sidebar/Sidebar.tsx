@@ -195,13 +195,13 @@ export default function Sidebar() {
               Deployed On
             </span>
             <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold border border-amber-500/20">
-              Quick ML & AppSail
+              Zia Slate & AppSail
             </span>
           </div>
           <div className="flex items-center gap-2 pt-1 border-t border-slate-200/60 dark:border-white/10">
             <img src="/catalyst.svg" alt="Catalyst" className="w-5 h-5 shrink-0" />
             <span className="text-xs font-bold text-slate-800 dark:text-amber-400 flex-1">
-              Zoho Catalyst
+              App Sail Compute
             </span>
             <img src="/zoho-logo-web.svg" alt="Zoho" className="h-3.5 dark:hidden opacity-90 shrink-0" />
             <img src="/zoho-logo-darkbg.svg" alt="Zoho" className="h-3.5 hidden dark:block opacity-90 shrink-0" />

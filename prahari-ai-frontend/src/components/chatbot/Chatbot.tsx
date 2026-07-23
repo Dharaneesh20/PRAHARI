@@ -211,7 +211,7 @@ function Chatbot() {
                   <div className="flex items-center gap-1.5 text-[10px] text-amber-500 font-semibold tracking-wider">
                     <img src="/catalyst.svg" alt="Catalyst" className="w-3 h-3 inline" />
                     <img src="/zoho-logo-darkbg.svg" alt="Zoho" className="h-2.5 inline opacity-90" />
-                    <span>NVIDIA AI &amp; Zoho Catalyst (Quick ML)</span>
+                    <span>NVIDIA AI &amp; Catalyst Quick ML (Zia NLP)</span>
                   </div>
                 </div>
               </div>
@@ -253,7 +253,7 @@ function Chatbot() {
                 >
                   <div className="flex items-center justify-center gap-2 py-1.5 text-[10px] font-semibold text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-500/10 border-b border-orange-100 dark:border-orange-500/20">
                     <span>🇮🇳</span>
-                    <span>ಕನ್ನಡ ಮೋಡ್ ಸಕ್ರಿಯ — Zoho Catalyst Zia ಅನುವಾದ ಬಳಸುತ್ತಿದೆ</span>
+                    <span>ಕನ್ನಡ ಮೋಡ್ ಸಕ್ರಿಯ — Catalyst Quick ML Zia ಅನುವಾದ ಬಳಸುತ್ತಿದೆ</span>
                   </div>
                 </motion.div>
               )}
@@ -327,7 +327,7 @@ function Chatbot() {
               {/* Powered by label */}
               {language === "kn" && (
                 <p className="mt-1.5 text-center text-[9px] text-slate-400 dark:text-white/30 tracking-wide">
-                  ✦ Powered by Zoho Catalyst Zia Text Translation
+                  ✦ Powered by Catalyst Quick ML &amp; Zia Trained NLP Models
                 </p>
               )}
             </div>
