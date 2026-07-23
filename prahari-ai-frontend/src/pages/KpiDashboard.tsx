@@ -92,7 +92,7 @@ export default function KpiDashboard() {
       <div className="p-5 md:p-6 flex flex-col gap-5">
 
         {/* ── Header ──────────────────────────────────────────── */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div id="tour-dashboard-header" className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-xl font-bold" style={{ color: "rgba(255,255,255,0.92)" }}>
               {t("tacticalOverview")}
@@ -106,7 +106,9 @@ export default function KpiDashboard() {
         </div>
 
         {/* ── Live Alert Ticker ───────────────────────────────── */}
-        <AlertTicker alerts={liveAlerts} />
+        <div id="tour-dashboard-ticker">
+          <AlertTicker alerts={liveAlerts} />
+        </div>
 
         {/* ── Stat Cards ──────────────────────────────────────── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -115,11 +117,13 @@ export default function KpiDashboard() {
           <StatCard label={t("highRiskZones")} value={3} icon={<Flame className="w-5 h-5" />} accentColor="#F97316" delay={0.15} />
           <StatCard label={t("avgResponse")} value={kpiSummary?.avgResponseTime ?? 0} suffix={language === "kn" ? " ನಿಮಿಷ" : " min"} decimals={1} icon={<Clock className="w-5 h-5" />} accentColor="#C9A227" trend={-0.8} trendLabel={language === "kn" ? " ಕಳೆದ ವಾರಕ್ಕೆ ಹೋಲಿಸಿದರೆ" : " vs last wk"} delay={0.2} />
           
-          <StatCard
-            label={t("clearanceRate")} value={kpiSummary?.clearanceRate ?? 0} suffix="%" decimals={1}
-            icon={<TrendingUp className="w-5 h-5" />} accentColor="#2E9E6C"
-            trend={kpiSummary?.clearanceRateTrend ?? 0} trendLabel={language === "kn" ? "% ಕಳೆದ ಅವಧಿಗೆ ಹೋಲಿಸಿದರೆ" : "% vs last period"} delay={0.25}
-          />
+          <div id="tour-dashboard-clearance" className="flex flex-col">
+            <StatCard
+              label={t("clearanceRate")} value={kpiSummary?.clearanceRate ?? 0} suffix="%" decimals={1}
+              icon={<TrendingUp className="w-5 h-5" />} accentColor="#2E9E6C"
+              trend={kpiSummary?.clearanceRateTrend ?? 0} trendLabel={language === "kn" ? "% ಕಳೆದ ಅವಧಿಗೆ ಹೋಲಿಸಿದರೆ" : "% vs last period"} delay={0.25}
+            />
+          </div>
         </div>
 
         {/* ── Main Grid ───────────────────────────────────────── */}

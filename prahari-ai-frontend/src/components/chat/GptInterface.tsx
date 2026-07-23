@@ -922,7 +922,7 @@ export default function GptInterface() {
         {/* Input Bar */}
         <div className="shrink-0 w-full px-3 sm:px-4 pb-3 pt-2">
           <motion.form onSubmit={handleSend} animate={isFocused ? { scale: 1.005 } : { scale: 1 }} transition={{ type: "spring", stiffness: 300, damping: 22 }} className="glass-specular relative flex flex-col w-full overflow-hidden" style={{ borderRadius: 20, backdropFilter: "blur(24px) saturate(160%)", WebkitBackdropFilter: "blur(24px) saturate(160%)", background: "rgba(255,255,255,0.055)", border: isFocused ? "1px solid rgba(201,162,39,0.55)" : "1px solid rgba(255,255,255,0.12)", boxShadow: isFocused ? "0 0 0 2px rgba(201,162,39,0.15), 0 8px 32px rgba(0,0,0,0.4)" : "0 8px 32px rgba(0,0,0,0.3)", transition: "border-color 0.25s, box-shadow 0.25s" }}>
-            <textarea value={message} onChange={(e) => setMessage(e.target.value)} onFocus={() => setIsFocused(true)} onBlur={() => setIsFocused(false)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(e as unknown as React.FormEvent); } }} placeholder="Query databases, analyze footage, or generate reports…" className="w-full max-h-36 min-h-[52px] py-3.5 pl-4 pr-4 bg-transparent outline-none resize-none text-sm font-medium" style={{ color: "rgba(255,255,255,0.88)" }} rows={1} />
+            <textarea id="tour-chat-textarea" value={message} onChange={(e) => setMessage(e.target.value)} onFocus={() => setIsFocused(true)} onBlur={() => setIsFocused(false)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(e as unknown as React.FormEvent); } }} placeholder="Query databases, analyze footage, or generate reports…" className="w-full max-h-36 min-h-[52px] py-3.5 pl-4 pr-4 bg-transparent outline-none resize-none text-sm font-medium" style={{ color: "rgba(255,255,255,0.88)" }} rows={1} />
             <div className="flex items-center justify-between px-2 pb-2 pt-0">
               <div className="flex items-center gap-0.5">
                 <motion.button type="button" whileTap={{ scale: 0.9 }} onClick={() => setShowAttach(true)} className="p-2 rounded-xl transition-colors text-white/40 hover:text-white/85 active:bg-white/10"><Paperclip className="w-4 h-4" /></motion.button>
@@ -943,7 +943,7 @@ export default function GptInterface() {
                 </motion.button>
               </div>
               <div className="flex items-center gap-1.5">
-                <motion.button type="button" whileTap={{ scale: 0.9 }} onClick={() => micGranted ? setIsListening(!isListening) : setShowMicConsent(true)} className="p-2 rounded-xl transition-all" style={{ color: isListening ? "#C9A227" : "rgba(255,255,255,0.4)", background: isListening ? "rgba(201,162,39,0.1)" : "transparent" }}>
+                <motion.button id="tour-chat-mic" type="button" whileTap={{ scale: 0.9 }} onClick={() => micGranted ? setIsListening(!isListening) : setShowMicConsent(true)} className="p-2 rounded-xl transition-all" style={{ color: isListening ? "#C9A227" : "rgba(255,255,255,0.4)", background: isListening ? "rgba(201,162,39,0.1)" : "transparent" }}>
                   <Mic className="w-4 h-4" />
                 </motion.button>
                 <motion.button type="submit" disabled={!message.trim() || sendState !== "idle"} className="p-2.5 rounded-xl transition-all disabled:opacity-30" style={{ background: message.trim() ? "#C9A227" : "rgba(255,255,255,0.08)", color: message.trim() ? "#000" : "rgba(255,255,255,0.3)" }} whileTap={{ scale: message.trim() ? 0.92 : 1 }}>

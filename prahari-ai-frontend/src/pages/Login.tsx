@@ -86,7 +86,7 @@ export default function Login() {
           >
 
             {/* Logo section */}
-            <div className="flex flex-col items-center gap-5">
+            <div id="tour-logo-header" className="flex flex-col items-center gap-5">
               <div className="flex items-center gap-4">
                 <img
                   src="/image_9a5181.png"
@@ -115,7 +115,7 @@ export default function Login() {
               </div>
 
               {/* Sleek Centered Zoho Catalyst Authentication Badge */}
-              <div className="flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-full border border-amber-500/25 bg-black/40 backdrop-blur-md shadow-sm">
+              <div id="tour-catalyst-auth" className="flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-full border border-amber-500/25 bg-black/40 backdrop-blur-md shadow-sm">
                 <img src="/catalyst.svg" alt="Catalyst" className="w-4 h-4 inline" />
                 <img src="/zoho-logo-darkbg.svg" alt="Zoho" className="h-3.5 inline opacity-90" />
                 <span className="text-[11px] font-mono text-amber-400 font-semibold tracking-wide">
@@ -234,6 +234,7 @@ export default function Login() {
                 
                 {/* Submit button */}
                 <button
+                  id="tour-login-btn"
                   type="submit"
                   disabled={!badgeId || !password}
                   onClick={handleButtonClick}
@@ -269,6 +270,7 @@ export default function Login() {
             {/* Demo Hackathon Feature */}
             <div className="flex flex-col gap-2 mt-2">
               <button 
+                id="tour-demo-toggle"
                 onClick={() => setShowDemo(!showDemo)}
                 className="text-[10px] uppercase font-bold text-gray-400 hover:text-white text-center tracking-widest transition"
               >
@@ -283,7 +285,7 @@ export default function Login() {
                     exit={{ opacity: 0, height: 0 }}
                     className="flex flex-col gap-2"
                   >
-                    <button type="button" onClick={() => handleDemoFill('KSP-IGP-9999', 'prahari@2026')} className="text-xs bg-white/5 border border-white/10 p-2 rounded text-left hover:bg-white/10 text-white transition">
+                    <button id="tour-demo-super-admin" type="button" onClick={() => handleDemoFill('KSP-IGP-9999', 'prahari@2026')} className="text-xs bg-white/5 border border-white/10 p-2 rounded text-left hover:bg-white/10 text-white transition">
                       <strong className="text-yellow-500">Super Admin (L3)</strong><br/><span className="text-gray-400">ID: KSP-IGP-9999 | Pwd: prahari@2026</span>
                     </button>
                     <button type="button" onClick={() => handleDemoFill('KSP-ACP-4022', 'prahari@2026')} className="text-xs bg-white/5 border border-white/10 p-2 rounded text-left hover:bg-white/10 text-white transition">

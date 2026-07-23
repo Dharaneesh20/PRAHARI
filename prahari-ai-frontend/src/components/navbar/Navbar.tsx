@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { Search, Bell, Sun, Moon, Monitor, Menu } from "lucide-react";
+import { Search, Bell, Sun, Moon, Monitor, Menu, HelpCircle } from "lucide-react";
 import { useTheme } from "../theme-provider";
 import { useNavigate } from "react-router-dom";
 import { auth, notifications } from "../../lib/api";
 import type { NotificationItem } from "../../lib/types";
 import { useAppContext } from "../../context/AppContext";
+import { useTour } from "../../context/TourContext";
 
 type ThemeOption = "light" | "dark" | "system";
 
@@ -45,6 +46,7 @@ function LiveClock() {
 export default function Navbar({ onMenuClick }: { onMenuClick?: () => void }) {
   const { theme, setTheme } = useTheme();
   const { profile, setProfile, t, language, setLanguage } = useAppContext();
+  const { startTour } = useTour();
   const navigate = useNavigate();
   const [notifCount, setNotifCount] = useState(0);
   const pillRef = useRef<HTMLDivElement>(null);
@@ -163,6 +165,15 @@ export default function Navbar({ onMenuClick }: { onMenuClick?: () => void }) {
             );
           })}
         </div>
+
+        {/* ── Help / Tour Button ── */}
+        <button
+          onClick={startTour}
+          title={language === "kn" ? "ಸಿಸ್ಟಮ್ ಪ್ರವಾಸವನ್ನು ಪ್ರಾರಂಭಿಸಿ" : "Start System Tour"}
+          className="p-1.5 rounded-xl transition-all duration-200 border border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/15 text-[#C9A227]"
+        >
+          <HelpCircle className="w-4 h-4" />
+        </button>
       </div>
     </header>
   );

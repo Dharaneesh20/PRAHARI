@@ -118,7 +118,7 @@ async def synthesize_speech_zia(
     if lang_code not in ("en", "hi", "kn"):
         lang_code = "kn"
 
-    speaker = voice or ("Anu" if lang_code == "kn" else ("Divya" if lang_code == "hi" else "Mary"))
+    speaker = voice or ("Suresh" if lang_code == "kn" else ("Divya" if lang_code == "hi" else "Mary"))
 
     clean_text = clean_text_for_tts(text)
     if not clean_text:

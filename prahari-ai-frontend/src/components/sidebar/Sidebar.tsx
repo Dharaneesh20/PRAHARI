@@ -4,11 +4,13 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { useAppContext } from "../../context/AppContext";
 import { clearToken } from "../../lib/api";
+import { useTour } from "../../context/TourContext";
 
 export default function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { profile, refreshProfile, setProfile, t } = useAppContext();
+  const { profile, refreshProfile, setProfile, t, language } = useAppContext();
+  const { startTour } = useTour();
 
   useEffect(() => {
     refreshProfile().catch(() => {});
@@ -104,6 +106,7 @@ export default function Sidebar() {
                 )}
 
                 <button
+                  id={item.path === "/bot" ? "tour-sidebar-bot" : item.path === "/map" ? "tour-sidebar-map" : undefined}
                   onClick={() => navigate(item.path)}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl relative z-10 transition-all duration-200 group ${
                     isActive
@@ -167,12 +170,20 @@ export default function Sidebar() {
               </p>
             </div>
           </div>
-          <button
-            onClick={logout}
-            className="mt-3 w-full rounded-xl px-3 py-2 text-xs font-bold transition-all bg-slate-200/70 dark:bg-white/10 text-slate-800 dark:text-white/80 hover:bg-slate-300 dark:hover:bg-white/20 border border-slate-300/80 dark:border-white/10"
-          >
-            {t("logout")}
-          </button>
+          <div className="flex gap-2 mt-3">
+            <button
+              onClick={() => startTour()}
+              className="flex-1 rounded-xl px-2 py-2 text-xs font-bold transition-all bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/20 hover:border-amber-500/40"
+            >
+              {language === "kn" ? "ಸಹಾಯ ಪ್ರವಾಸ" : "System Tour"}
+            </button>
+            <button
+              onClick={logout}
+              className="flex-1 rounded-xl px-2 py-2 text-xs font-bold transition-all bg-slate-200/70 dark:bg-white/10 text-slate-800 dark:text-white/80 hover:bg-slate-300 dark:hover:bg-white/20 border border-slate-300/80 dark:border-white/10"
+            >
+              {t("logout")}
+            </button>
+          </div>
         </div>
       </div>
 

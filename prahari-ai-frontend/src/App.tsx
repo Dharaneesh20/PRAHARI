@@ -12,6 +12,8 @@ import { DashboardProvider } from "./context/DashboardContext";
 import PageTransition from "./components/PageTransition";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminPanel from "./pages/AdminPanel";
+import { TourProvider } from "./context/TourContext";
+import TourOverlay from "./components/TourOverlay";
 
 function AppRoutes() {
   const location = useLocation();
@@ -91,7 +93,10 @@ function App() {
     <ThemeProvider defaultTheme="system" storageKey="prahari-theme">
       <DashboardProvider>
         <BrowserRouter>
-          <AppRoutes />
+          <TourProvider>
+            <AppRoutes />
+            <TourOverlay />
+          </TourProvider>
         </BrowserRouter>
       </DashboardProvider>
     </ThemeProvider>

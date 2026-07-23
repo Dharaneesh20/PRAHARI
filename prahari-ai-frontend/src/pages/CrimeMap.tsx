@@ -158,7 +158,7 @@ export default function CrimeMap() {
     : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
 
   return (
-    <div className="relative w-full h-full min-h-[500px]">
+    <div id="tour-map-leaflet" className="relative w-full h-full min-h-[500px]">
       {/* ── Leaflet Map ──────────────────────────────────────── */}
       <MapContainer
         center={mapCenter}
@@ -222,6 +222,7 @@ export default function CrimeMap() {
 
         {/* Light / Dark Map Tile Switcher */}
         <button
+          id="tour-map-theme"
           type="button"
           onClick={() => setMapTheme(mapTheme === "dark" ? "light" : "dark")}
           className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-800 dark:text-white shadow-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition"
