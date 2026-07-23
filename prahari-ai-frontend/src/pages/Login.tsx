@@ -74,7 +74,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center relative overflow-hidden font-['Inter','Ubuntu',sans-serif]">
+    <div className="min-h-screen w-full flex items-center justify-center relative overflow-y-auto py-12 font-['Inter','Ubuntu',sans-serif]">
 
       {/* Full-bleed animated canvas */}
       <LiquidCanvas />
