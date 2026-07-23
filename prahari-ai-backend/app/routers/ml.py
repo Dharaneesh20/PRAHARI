@@ -268,12 +268,32 @@ async def nl2sql_stream(
     """
     Streams LLM token response in real-time using Server-Sent Events (SSE),
     creates/persists chat session, and records user & bot messages.
+    Supports Kannada input/output via Zoho Catalyst Zia Text Translation.
     """
     if not body.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
-        
+
     clearance_level = current_user.clearance_level
     session_id = body.session_id
+    is_kannada = (body.language or "en").lower() in ("kn", "kn-in", "kannada")
+
+    # ── Pre-step: Translate Kannada question → English for NL2SQL ──────────────
+    english_question = body.question
+    original_question_kn = body.question if is_kannada else None
+
+    if is_kannada:
+        try:
+            from app.services.catalyst.nlp import translate_text_catalyst
+            tr_res = await translate_text_catalyst(
+                body.question, source_lang="kn", target_lang="en"
+            )
+            if tr_res.get("status") == "success" and tr_res.get("translated_text"):
+                english_question = tr_res["translated_text"]
+            else:
+                # If translation fails, proceed with original (Kannada) text
+                english_question = body.question
+        except Exception:
+            english_question = body.question
 
     # Create session if not provided or invalid
     if not session_id or not str(session_id).isdigit():
@@ -289,14 +309,13 @@ async def nl2sql_stream(
     else:
         session_id = str(session_id)
 
-    # Save user message immediately
+    # Save user message immediately (store original language text)
     session_int_id = int(session_id) if session_id.isdigit() else 0
     if session_int_id > 0:
         auth_db.add(ChatMessage(session_id=session_int_id, sender="user", text=body.question))
         auth_db.commit()
 
     async def _stream_with_persistence():
-        # First send session meta to client
         import json
         yield f'data: {{"meta": {{"session_id": "{session_id}"}}}}\n\n'
 
@@ -304,7 +323,7 @@ async def nl2sql_stream(
         accumulated_thinking = ""
         generator = ml_service.run_nl2sql_stream(
             db,
-            body.question,
+            english_question,       # Always send English to NL2SQL agent
             body.role,
             body.scope_id,
             clearance_level=clearance_level,
@@ -314,7 +333,7 @@ async def nl2sql_stream(
         for chunk in generator:
             yield chunk
 
-            # Extract token and thinking content to accumulate final answer
+            # Accumulate final answer and thinking for persistence + translation
             if chunk.startswith("data: "):
                 try:
                     parsed = json.loads(chunk[6:].strip())
@@ -325,17 +344,35 @@ async def nl2sql_stream(
                 except Exception:
                     pass
 
-        # Save bot message with thinking content on completion
-        if session_int_id > 0 and (accumulated_answer.strip() or accumulated_thinking.strip()):
+        # ── Post-step: Translate English answer → Kannada ──────────────────────
+        kannada_answer = None
+        if is_kannada and accumulated_answer.strip():
+            try:
+                from app.services.catalyst.nlp import translate_text_catalyst
+                tr_res = await translate_text_catalyst(
+                    accumulated_answer, source_lang="en", target_lang="kn"
+                )
+                if tr_res.get("status") == "success" and tr_res.get("translated_text"):
+                    kannada_answer = tr_res["translated_text"]
+            except Exception:
+                kannada_answer = None  # Graceful fallback to English
+
+        # Emit translated_answer event so the frontend can swap the displayed text
+        if kannada_answer:
+            yield f'data: {json.dumps({"translated_answer": kannada_answer})}\n\n'
+
+        # Save bot message (save Kannada answer if available, else English)
+        final_bot_text = kannada_answer if kannada_answer else accumulated_answer
+        if session_int_id > 0 and (final_bot_text.strip() or accumulated_thinking.strip()):
             try:
                 auth_db.add(ChatMessage(
                     session_id=session_int_id,
                     sender="bot",
-                    text=accumulated_answer,
+                    text=final_bot_text,
                     thinking=accumulated_thinking if accumulated_thinking.strip() else None
                 ))
                 auth_db.commit()
-            except Exception as e:
+            except Exception:
                 pass
 
     return StreamingResponse(

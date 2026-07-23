@@ -173,6 +173,7 @@ class NL2SQLRequest(BaseModel):
     role: Optional[str] = "SCRB_ADMIN"
     scope_id: Optional[int] = None
     session_id: Optional[str] = None
+    language: Optional[str] = "en"  # "en" for English, "kn" for Kannada
 
 
 class NL2SQLResponse(BaseModel):

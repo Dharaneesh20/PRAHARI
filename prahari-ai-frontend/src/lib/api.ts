@@ -610,7 +610,9 @@ export const ml = {
     onMeta?: (meta: { route?: string; sql?: string; rows?: number; session_id?: string }) => void,
     onError?: (err: string) => void,
     onThinking?: (thinkingToken: string) => void,
-    sessionId?: string | number
+    sessionId?: string | number,
+    language?: string,
+    onTranslatedAnswer?: (translatedText: string) => void
   ) => {
     const token = getToken();
     const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -619,7 +621,12 @@ export const ml = {
     const res = await fetch(`${BASE_URL}/api/v1/search/nl2sql/stream`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ question, role: "SCRB_ADMIN", session_id: sessionId ? String(sessionId) : undefined }),
+      body: JSON.stringify({
+        question,
+        role: "SCRB_ADMIN",
+        session_id: sessionId ? String(sessionId) : undefined,
+        language: language || "en",
+      }),
     });
 
     if (!res.ok) {
@@ -652,6 +659,9 @@ export const ml = {
             onMeta(parsed.meta);
           } else if (parsed.thinking && onThinking) {
             onThinking(parsed.thinking);
+          } else if (parsed.translated_answer && onTranslatedAnswer) {
+            // Kannada-translated full answer — swap displayed text
+            onTranslatedAnswer(parsed.translated_answer);
           } else if (parsed.token) {
             if (parsed.token === "[DONE]") break;
             onToken(parsed.token);
