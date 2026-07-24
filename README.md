@@ -27,7 +27,7 @@
 
   <br />
 
-  [![Live Demo](https://img.shields.io/badge/Live_Demo-AppSail_Hosted-0052CC.svg)](https://prahari-ai-demo.catalystappsail.com)
+  [![Live Demo](https://img.shields.io/badge/Live_Demo-Catalyst_Slate-0052CC.svg)](https://prahariai.onsite.in/)
   [![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB.svg)](https://python.org)
   [![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688.svg)](https://fastapi.tiangolo.com)
   [![React 19](https://img.shields.io/badge/React-19.0-61DAFB.svg)](https://react.dev)
@@ -41,22 +41,32 @@
 
 **PRAHARI AI** (Proactive Response & Analytics Hub for Actionable Records & Investigation) is a multimodal AI command and tactical analytics platform engineered for state law enforcement. Developed for the Karnataka State Police Datathon, the platform empowers police command staff, Station House Officers (SHOs), and intelligence analysts to transform raw First Information Reports (FIRs), spatio-temporal incident logs, and evidence streams into actionable tactical intelligence.
 
-The platform is designed to handle complex data querying and deliver uninterrupted intelligence utilizing robust fallback mechanisms and specialized AI microservices.
+The application is fully completed and hosted on Zoho Catalyst.
 
-### Live Application Endpoint
-- **Live Demo Instance**: [https://prahari-ai-demo.catalystappsail.com](https://prahari-ai-demo.catalystappsail.com) (Placeholder link)
+### Live Application Endpoints
+- **Application Live Link Catalyst (Slate Hosted)**: [https://prahariai.onsite.in/](https://prahariai.onsite.in/)
+- **Backend Endpoint Catalyst (AppSail Hosted)**: [https://backend-prahari-ai-50044201698.development.catalystappsail.in/](https://backend-prahari-ai-50044201698.development.catalystappsail.in/)
+- **ML Pipeline Endpoint Catalyst (AppSail Hosted)**: [https://ml-prahari-ai-docker-50044201698.development.catalystappsail.in/health](https://ml-prahari-ai-docker-50044201698.development.catalystappsail.in/health)
 
 ---
 
-## What We Implemented
+## Key Features & What We Implemented
 
 We developed a comprehensive analytics and intelligence hub that features:
 
-- **Intensive LLM Fallback Mechanism**: An integrated system featuring 4 fallback LLM models, ensuring uninterrupted working, high availability, and consistent, high-quality information retrieval even during service disruptions.
-- **AIML Pipeline with DuckDB**: A robust Artificial Intelligence and Machine Learning pipeline integrated seamlessly with DuckDB to process, aggregate, and analyze vast amounts of data efficiently.
-- **Stronger Query Engine**: A powerful query engine tailored for hard querying, translating complex natural language tactical questions into optimized SQL for deep data exploration.
-- **Decoupled Architecture**: Separation of core analytical logic from external AI capabilities, utilizing robust cloud deployment strategies.
-- **Multimodal Interfaces**: Support for optical character recognition, object detection, speech-to-text, and text-to-speech to assist officers in varied tactical scenarios.
+- **Built-in Application Tour**: An interactive first-time user navigation guide. Just click the "Tour" option on the Login page to easily explore the platform's capabilities.
+- **Multilingual Support (Kannada & English)**: Deep regional language support via **Zoho Catalyst Zia NLP models** including:
+  - **Zia Neural Translation**: Seamless translation from Kannada to English and English to Kannada.
+  - **Zia Text-to-Speech & Speech-to-Text**: Allowing officers to dictate and listen to incident reports naturally.
+- **Advanced OCR Recognition**: Extracting text from physical documents, evidence, and forms using **Zoho Catalyst Zia OCR**.
+- **Role-Based Access Control (RBAC)**: Secure authentication and authorization powered by **Zoho Catalyst Cloud Scale OAuth**.
+- **Crime Map Hotspot Analysis**: Interactive mapping and geographic spatial analysis powered by our AI/ML pipeline.
+- **Comprehensive PDF Generation**: Instantly generate well-formatted, professional PDF reports for law enforcement conversations and analytics.
+- **Intensive LLM Fallback Mechanism**: An integrated multi-model architecture ensuring uninterrupted access and robust fallback protection. We interface with multiple models including:
+  - **NVIDIA Models**: DeepSeek, Nemotron 550B, Nemotron 120B, and Mistral.
+  - **Groq LLaMA 120B**: Provides strong fallback protection for uninterrupted AI intelligence, even during service disruptions.
+- **AIML Pipeline with DuckDB**: Seamless integration with DuckDB to process, aggregate, and analyze vast amounts of data efficiently.
+- **Stronger Query Engine**: A powerful NL2SQL engine translating complex natural language tactical questions into optimized SQL for deep data exploration.
 
 ---
 
@@ -65,8 +75,8 @@ We developed a comprehensive analytics and intelligence hub that features:
 Our team developed every layer of this application collaboratively, covering frontend, backend, AI/ML, and cloud integration.
 
 - **Frontend**: Built with React 19, TypeScript, Vite, and Tailwind CSS. We designed interactive maps and tactical dashboards for real-time data visualization.
-- **Backend & AIML**: Powered by FastAPI (Python 3.12). We implemented a comprehensive Natural Language to SQL (NL2SQL) engine utilizing DuckDB for fast aggregations, alongside Pandas and NetworkX for network analysis. The robust LLM fallback mechanism is built natively into our intelligence pipeline.
-- **Cloud Infrastructure**: The entire application is deployed using modern cloud containerization. The frontend and backend services are securely hosted, maintaining high uptime and secure access through OAuth2 and JWT-based authentication.
+- **Backend & AIML**: Powered by FastAPI (Python 3.12). We implemented a comprehensive Natural Language to SQL (NL2SQL) engine utilizing DuckDB for fast aggregations, alongside Pandas and NetworkX for network analysis. 
+- **Cloud Infrastructure**: The entire application is deployed using modern cloud containerization securely hosted on Zoho Catalyst.
 
 ---
 
@@ -74,12 +84,12 @@ Our team developed every layer of this application collaboratively, covering fro
 
 We heavily utilized **Zoho Catalyst** to power critical microservices and host our application securely:
 
-- **Zoho Catalyst AppSail**: Provides scalable container hosting and execution lifecycle management for our full-stack application, ensuring robust deployment.
-- **Zoho Catalyst Quick ML**: Powers our computer vision and text analysis microservices, specifically including:
-  - **Optical Character Recognition (OCR)**: Extracting text from documents and forms.
-  - **Vision AI & Object Detection**: Identifying objects from crime scene imagery.
-  - **Face Analytics & Identity Scanner**: Processing demographic attributes and identity documents.
-  - **Text Analytics**: Extracting entities and analyzing sentiments in incident reports.
+- **Zoho Catalyst AppSail**: Provides scalable container hosting and execution lifecycle management for our full-stack backend and ML pipeline.
+- **Zoho Catalyst Slate**: Hosts our interactive frontend dashboard securely.
+- **Zoho Catalyst Quick ML & Zia Services**: Powers our natural language and computer vision microservices:
+  - **Zia OCR**: Extracting text from documents and forms.
+  - **Zia Translation, STT, and TTS**: Powering our English-Kannada multilingual accessibility.
+- **Zoho Catalyst Cloud Scale OAuth**: Securing our Role-Based Access Control (RBAC) architecture.
 
 ---
 
@@ -98,8 +108,8 @@ This project was built collaboratively by a dedicated team of developers. We all
 We acknowledge and credit the following organizations whose platforms, emblems, and APIs power the PRAHARI AI application. Their logos have been respectfully used to signify our integration and platform alignment:
 
 - **Karnataka State Police**: For domain context, organizational structure, operational guidelines, and police station data modeling. We proudly use their emblem in our application.
-- **Zoho Catalyst**: For cloud infrastructure, application container hosting via **AppSail**, and machine learning microservices via **Quick ML**. The Zoho and Catalyst logos represent our deployment backbone.
-- **NVIDIA AI**: For hosted AI endpoints powering Speech-to-Text, Text-to-Speech, Neural Translation, and LLM inference engines.
+- **Zoho Catalyst**: For cloud infrastructure, application container hosting via **AppSail** and **Slate**, and machine learning microservices via **Quick ML & Zia**. The Zoho and Catalyst logos represent our deployment backbone.
+- **NVIDIA AI & Groq**: For hosted AI endpoints powering our highly-available multi-model fallback LLM architecture.
 
 ---
 
