@@ -44,7 +44,7 @@
 The application is fully completed and hosted on Zoho Catalyst.
 
 ### Live Application Endpoints
-- **Application Live Link Catalyst (Slate Hosted)**: [https://prahariai.onsite.in/](https://prahariai.onsite.in/)
+- **Application Live Link Catalyst (Slate Hosted)**: [https://prahariai.onsite.in/](https://prahariai.onslate.in/)
 - **Backend Endpoint Catalyst (AppSail Hosted)**: [https://backend-prahari-ai-50044201698.development.catalystappsail.in/](https://backend-prahari-ai-50044201698.development.catalystappsail.in/)
 - **ML Pipeline Endpoint Catalyst (AppSail Hosted)**: [https://ml-prahari-ai-docker-50044201698.development.catalystappsail.in/health](https://ml-prahari-ai-docker-50044201698.development.catalystappsail.in/health)
 
